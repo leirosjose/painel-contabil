@@ -114,6 +114,9 @@ mesma.
 | 104 | Delta Fictícia Empreendimentos Imobiliários | Lucro Presumido | recebimentos de venda de imóvel (origens B, L e R) |
 | 105 | Gama Fictícia (filial) | Lucro Real | mesma raiz de CNPJ da 103: consolidado de grupo |
 
+> Todos os CNPJs, nomes e valores deste repositório são **fictícios**,
+> gerados com semente fixa. Qualquer coincidência com empresa real é acaso.
+
 A contabilidade (plano de contas e lançamentos) acompanha as notas e a folha.
 Por isso balancete, DRE, liquidez e lucratividade fecham com o faturamento.
 
@@ -129,6 +132,10 @@ e grava em `_sujeira.json` quanto aplicou de cada tipo:
 | data `31/01/2024`, valor `1.234,56`, CNPJ com máscara, nome com espaços/caixa trocados | **normaliza** e conta |
 | linha repetida | **remove** a duplicata e conta |
 | ano absurdo, coluna obrigatória ou chave vazia, valor ambíguo (`1.234` sem decimais), empresa fora do cadastro, parcela sem nota de serviço, lançamento em conta fora do plano | **rejeita**, com o motivo |
+
+Um lançamento com uma das pernas numa conta fora do plano é rejeitado
+inteiro, e não só a perna inválida: aceitar meia partida quebraria a
+partida dobrada (débito = crédito) no balancete.
 
 Nada é descartado em silêncio:
 
