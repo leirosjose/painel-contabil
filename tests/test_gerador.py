@@ -111,3 +111,39 @@ def test_bancos_nunca_negativo_no_fim_do_mes(t):
 
 def test_volume_pequeno_para_a_carga_rodar_rapido(t):
     assert sum(len(df) for df in t.values()) < 50_000
+
+
+def _por_mes(g, debito=None, credito=None):
+    sel = g[g.cdeb_lan == debito] if debito is not None else g[g.ccre_lan == credito]
+    return sel.groupby("mes")["vlor_lan"].sum()
+
+
+def test_custo_das_vendas_nunca_passa_das_compras_do_mes(t):
+    lan = t["ctlancto"].assign(mes=t["ctlancto"]["data_lan"].str[:7])
+    lan = lan[lan.data_lan > "2023-11-30"]
+    estoque, cmv = 5, 22
+    for emp, g in lan.groupby("codi_emp"):
+        custo = _por_mes(g, debito=cmv)
+        if custo.empty:
+            continue
+        compras = _por_mes(g, debito=estoque).reindex(custo.index, fill_value=0)
+        assert (custo.round(2) <= compras.round(2)).all(), (emp, list(custo[custo > compras].index))
+
+
+def test_estoque_nunca_negativo_no_fim_do_mes(t):
+    lan = t["ctlancto"].assign(mes=t["ctlancto"]["data_lan"].str[:7])
+    estoque = 5
+    for emp, g in lan.groupby("codi_emp"):
+        mov = _por_mes(g, debito=estoque).sub(_por_mes(g, credito=estoque), fill_value=0)
+        assert (mov.sort_index().cumsum() >= 0).all(), emp
+
+
+def test_simples_faturamento_da_entrega_futura_nao_baixa_estoque(t):
+    """O 5922 só fatura; a mercadoria sai na entrega (5116). Custo sobre os dois contaria a saída duas vezes."""
+    sai = t["efsaidas"].assign(mes=t["efsaidas"]["dsai_sai"].str[:7])
+    fisica = sai[~sai.codi_nat.isin([CFOP_VENDA_A_ORDEM, *CFOPS_ENTREGA_FUTURA_EMISSAO])]
+    base = fisica.groupby(["codi_emp", "mes"])["vcon_sai"].sum()
+    lan = t["ctlancto"].assign(mes=t["ctlancto"]["data_lan"].str[:7])
+    custo = lan[lan.cdeb_lan == 22].groupby(["codi_emp", "mes"])["vlor_lan"].sum()
+    razao = (custo / base.reindex(custo.index)).dropna()
+    assert razao.between(0.58 - 1e-4, 0.62 + 1e-4).all(), razao[~razao.between(0.58 - 1e-4, 0.62 + 1e-4)]

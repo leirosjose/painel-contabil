@@ -7,6 +7,11 @@ from raw_schema import TIPOS
 CFOP_VENDA_A_ORDEM = 5923
 CFOP_ENTREGA_FUTURA_EMISSAO = 5922
 CFOP_ENTREGA_FUTURA_ENTREGA = 5116
+# Saídas sem mercadoria saindo do estoque da empresa: a venda à ordem sai do
+# fornecedor e o simples faturamento da entrega futura só fatura (a mercadoria
+# sai depois, no 5116). Não geram custo nem pedem compra.
+CFOPS_SEM_SAIDA_FISICA = frozenset({CFOP_VENDA_A_ORDEM, CFOP_ENTREGA_FUTURA_EMISSAO})
+MARGEM_COMPRA = 0.62  # compras do mês sobre a mercadoria que saiu; teto do custo das vendas
 
 # Alíquotas fictícias, só para os números terem ordem de grandeza plausível.
 ALIQ = {"das": 0.06, "icms": 0.12, "ipi": 0.05, "pis_nc": 0.0165, "cofins_nc": 0.076,
@@ -59,8 +64,9 @@ def gera_fiscal(rnd) -> dict:
                 for cfop, v in extras:
                     saidas.append({"codi_emp": e.codi, "codi_sai": prox("sai", e.codi), "dsai_sai": dia(rnd, mes),
                                    "vcon_sai": r2(v), "codi_nat": cfop, "codi_acu": 1})
+                mercadoria = receita + sum(v for cfop, v in extras if cfop not in CFOPS_SEM_SAIDA_FISICA)
                 compra = 1102 if e.perfil == "comercio" else 1101
-                for v in _notas(rnd, receita * 0.62, 4):
+                for v in _notas(rnd, mercadoria * MARGEM_COMPRA, 4):
                     entradas.append({"codi_emp": e.codi, "codi_ent": prox("ent", e.codi), "dent_ent": dia(rnd, mes),
                                      "vcon_ent": v, "codi_nat": compra})
                 devolucao = 1202 if e.perfil == "comercio" else 1201

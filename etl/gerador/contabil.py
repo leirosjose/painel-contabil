@@ -4,6 +4,7 @@ from collections import defaultdict
 import pandas as pd
 
 from gerador.empresas import DATA_ABERTURA, EMPRESAS, MESES, r2
+from gerador.fiscal import CFOP_VENDA_A_ORDEM, CFOPS_SEM_SAIDA_FISICA, MARGEM_COMPRA
 from raw_schema import TIPOS
 
 # (codi_cta, clas_cta, nome_cta, grdre_cta)
@@ -74,7 +75,9 @@ def gera_contabil(rnd, fiscal: dict, folha: dict) -> dict:
                      "ccre_lan": cre, "vlor_lan": r2(valor), "orig_lan": 1})
 
     saidas = _soma_mes(fiscal["efsaidas"], "codi_emp", "dsai_sai", "vcon_sai",
-                       lambda d: d["codi_nat"] != 5923)
+                       lambda d: d["codi_nat"] != CFOP_VENDA_A_ORDEM)
+    mercadoria = _soma_mes(fiscal["efsaidas"], "codi_emp", "dsai_sai", "vcon_sai",
+                           lambda d: ~d["codi_nat"].isin(CFOPS_SEM_SAIDA_FISICA))
     servicos = _soma_mes(fiscal["efservicos"], "codi_emp", "dser_ser", "vcon_ser")
     imob = _soma_mes(fiscal["efimob_pagamentos"], "codi_emp", "data_pagamento", "valor_pago")
     compras = _soma_mes(fiscal["efentradas"], "codi_emp", "dent_ent", "vcon_ent",
@@ -115,7 +118,7 @@ def gera_contabil(rnd, fiscal: dict, folha: dict) -> dict:
             if comercial:
                 lanca(e.codi, f"{mes}-10", FORNECEDORES, BANCOS, anterior["compras"])
                 lanca(e.codi, fim, ESTOQUE, FORNECEDORES, compras[k])
-                lanca(e.codi, fim, CMV, ESTOQUE, saidas[k] * rnd.uniform(0.58, 0.62))
+                lanca(e.codi, fim, CMV, ESTOQUE, mercadoria[k] * rnd.uniform(0.58, MARGEM_COMPRA))
             lanca(e.codi, fim, SALARIOS, SALARIOS_PAGAR, proventos[k])
             lanca(e.codi, fim, SALARIOS_PAGAR, BANCOS, proventos[k])
             lanca(e.codi, f"{mes}-20", ENCARGOS_REC, BANCOS, anterior["encargos"])
