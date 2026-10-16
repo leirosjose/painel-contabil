@@ -3,8 +3,9 @@ from pathlib import Path
 
 import pandas as pd
 
+import qualidade as Q
 from raw_schema import (COLUNA_JANELA, DATA, GLOBAIS, INTEIRO, TEXTO, TIPOS, VALOR,
-                            inicio_do_mes, limites_do_mes)
+                        inicio_do_mes, limites_do_mes)
 
 
 def _normaliza(df: pd.DataFrame, tabela: str) -> pd.DataFrame:
@@ -30,10 +31,14 @@ def _normaliza(df: pd.DataFrame, tabela: str) -> pd.DataFrame:
 
 
 class FonteArquivos:
-    """Lê `<pasta>/<tabela>.csv` (ou `.xlsx`) e entrega o contrato de `raw_schema`."""
+    """Lê `<pasta>/<tabela>.csv` (ou `.xlsx`), limpa (`qualidade.limpa`) e
+    entrega o contrato de `raw_schema`. O resultado da limpeza de cada tabela
+    fica em `relatorio[tabela]`."""
 
     def __init__(self, pasta: str | Path):
         self.pasta = Path(pasta)
+        self.relatorio: dict[str, Q.Resultado] = {}
+        self._cache: dict[str, pd.DataFrame] = {}
 
     def _bruto(self, tabela: str) -> pd.DataFrame:
         csv, xlsx = self.pasta / f"{tabela}.csv", self.pasta / f"{tabela}.xlsx"
@@ -43,8 +48,29 @@ class FonteArquivos:
             return pd.read_excel(xlsx)
         raise FileNotFoundError(f"{tabela}: nem {csv.name} nem {xlsx.name} em {self.pasta}")
 
+    def _existe(self, tabela: str) -> bool:
+        return any((self.pasta / f"{tabela}.{ext}").exists() for ext in ("csv", "xlsx"))
+
+    def _referencia(self, tabela: str, colunas: list[str]) -> set | None:
+        if not self._existe(tabela):
+            return None
+        df = self._tabela(tabela)
+        return {tuple(int(v) for v in r) if len(r) > 1 else int(r[0])
+                for r in df[colunas].itertuples(index=False)}
+
     def _tabela(self, tabela: str) -> pd.DataFrame:
-        return _normaliza(self._bruto(tabela), tabela)
+        if tabela not in self._cache:
+            ref = {}
+            if tabela != "geempre" and "codi_emp" in TIPOS[tabela]:
+                ref["empresas"] = self._referencia("geempre", ["codi_emp"])
+            if tabela == "ctlancto":
+                ref["contas"] = self._referencia("ctcontas", ["codi_emp", "codi_cta"])
+            if tabela == "efservicospar":
+                ref["notas_servico"] = self._referencia("efservicos", ["codi_emp", "codi_ser"])
+            r = Q.limpa(tabela, self._bruto(tabela), **ref)
+            self.relatorio[tabela] = r
+            self._cache[tabela] = _normaliza(r.aceitas, tabela)
+        return self._cache[tabela].copy()
 
     def ler(self, tabela, empresa=None, inicio=None, fim=None):
         df = self._tabela(tabela)

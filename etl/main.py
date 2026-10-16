@@ -22,6 +22,7 @@ import pandas as pd
 
 from load import ensure_schemas, expurga_geracoes_si, upsert_mart
 import geracao as G
+import qualidade as Q
 import retroativas as RET
 from raw_escopo import ESCOPOS, GLOBAIS, pedido
 from config import CORTE_CANONICO, PG_SCHEMA_RAW
@@ -497,6 +498,21 @@ def _abre_run(report: dict, iniciado_em: datetime) -> int:
         return run_id
     finally:
         conn.close()
+
+
+def _grava_qualidade(run_id: int, relatorio: dict, report: dict) -> None:
+    """Grava no ops o relatório de qualidade da leitura da origem deste run."""
+    conn = connect_postgres()
+    try:
+        Q.grava_relatorio(conn, run_id, relatorio)
+    finally:
+        conn.close()
+    rej = sum(len(r.rejeitadas) for r in relatorio.values())
+    norm = sum(sum(r.normalizadas.values()) for r in relatorio.values())
+    dup = sum(r.duplicatas for r in relatorio.values())
+    report["qualidade"] = {"rejeitadas": rej, "normalizadas": norm, "duplicatas": dup}
+    _log(f"qualidade: {norm} valor(es) normalizado(s), {dup} duplicata(s) removida(s), "
+         f"{rej} linha(s) rejeitada(s) -> ops.rejeitados")
 
 
 def _status_final(report: dict) -> str:
@@ -1253,6 +1269,7 @@ def main() -> None:
             _log(f"origem declara até {report['fim_declarado']}")
             raw = run_extract(empresa, inicio, fim,
                               saldo_inicial_mode=args.saldo_inicial, report=report, fonte=fonte)
+            _grava_qualidade(run_id, fonte.relatorio, report)
             # O overlap N-1 segue aparado antes da carga (raw fiel a janela).
             # A ancora do shift vem do VIGENTE, como no skip-extract.
             raw["fobases"], n_overlap = trim_fobases_overlap(raw.get("fobases", pd.DataFrame()), inicio)

@@ -1504,6 +1504,7 @@ with st.sidebar:
                         disabled=_etl_running,
                         width="stretch")
     st.page_link("pages/alteracoes_retroativas.py", label="Alterações retroativas")
+    st.page_link("pages/qualidade_dados.py", label="Qualidade dos dados")
 
     st.markdown("---")
     # Seletor de MODELOS — um widget, valido pros 3 botoes de PDF (e a CLI tem

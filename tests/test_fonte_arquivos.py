@@ -132,3 +132,35 @@ def test_coluna_do_contrato_ausente_levanta_erro_claro(tmp_path):
     _csv(tmp_path, "efsaidas", [{"codi_emp": 101, "codi_sai": 1, "dsai_sai": "2024-01-31"}])
     with pytest.raises(ValueError, match="vcon_sai"):
         FonteArquivos(tmp_path).ler("efsaidas")
+
+
+def test_fonte_limpa_antes_do_contrato_e_guarda_o_relatorio(tmp_path):
+    _csv(tmp_path, "geempre", [{"codi_emp": 101, "nome_emp": "ALFA", "cgce_emp": "89039653000198", "stat_emp": "A"}])
+    _csv(tmp_path, "efsaidas", [
+        {"codi_emp": 101, "codi_sai": 1, "dsai_sai": "31/01/2024", "vcon_sai": "1.000,50", "codi_nat": 5102, "codi_acu": 1},
+        {"codi_emp": 999, "codi_sai": 2, "dsai_sai": "2024-01-31", "vcon_sai": "10", "codi_nat": 5102, "codi_acu": 1},
+    ])
+    fonte = FonteArquivos(tmp_path)
+    df = fonte.ler("efsaidas")
+    assert df["dsai_sai"].tolist() == ["2024-01-31"] and df["vcon_sai"].tolist() == [1000.5]
+    r = fonte.relatorio["efsaidas"]
+    assert r.lidas == 2 and len(r.rejeitadas) == 1 and sum(r.normalizadas.values()) == 2
+
+
+def test_lancamento_e_parcela_conferidos_contra_os_cadastros(tmp_path):
+    _csv(tmp_path, "geempre", [{"codi_emp": 101, "nome_emp": "ALFA", "cgce_emp": "89039653000198", "stat_emp": "A"}])
+    _csv(tmp_path, "ctcontas", [{"codi_emp": 101, "codi_cta": 10, "clas_cta": "1", "nome_cta": "CAIXA", "grdre_cta": None}])
+    _csv(tmp_path, "ctlancto", [
+        {"codi_emp": 101, "nume_lan": 1, "data_lan": "2024-01-02", "cdeb_lan": 10, "ccre_lan": 10, "vlor_lan": 1, "orig_lan": 1},
+        {"codi_emp": 101, "nume_lan": 2, "data_lan": "2024-01-02", "cdeb_lan": 10, "ccre_lan": 77, "vlor_lan": 1, "orig_lan": 1},
+    ])
+    _csv(tmp_path, "efservicos", [{"codi_emp": 101, "codi_ser": 1, "dser_ser": "2024-01-10", "vcon_ser": 100}])
+    _csv(tmp_path, "efservicospar", [
+        {"codi_emp": 101, "codi_ser": 1, "parc_serp": 1, "vissr_serp": 5},
+        {"codi_emp": 101, "codi_ser": 9, "parc_serp": 1, "vissr_serp": 5},
+    ])
+    fonte = FonteArquivos(tmp_path)
+    assert fonte.ler("ctlancto")["nume_lan"].tolist() == [1]
+    assert fonte.ler("efservicospar")["codi_ser"].tolist() == [1]
+    assert len(fonte.relatorio["ctlancto"].rejeitadas) == 1
+    assert len(fonte.relatorio["efservicospar"].rejeitadas) == 1
