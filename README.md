@@ -65,26 +65,59 @@ um `postgres:15` de serviço) e um `docker compose up` de ponta a ponta.
 
 ## Arquitetura
 
+### O sistema de verdade
+
+Em produção, a origem é o **banco do Domínio** (SAP SQL Anywhere, tabelas do
+schema do próprio Domínio). Um extract via JDBC lê fiscal, contabilidade e
+folha de toda a carteira de clientes e grava no **PostgreSQL**:
+
+- **raw:** cópia fiel das tabelas de origem, versionada por geração, que só
+  fica vigente depois de validada;
+- **mart:** os marts mensais por empresa;
+- **ops:** controle dos runs, manifesto das gerações e histórico de
+  alterações.
+
+O painel Streamlit e o PDF leem os marts. Rodar isso em produção exige um
+servidor do Domínio no ar.
+
+### Nesta versão pública
+
+A origem é uma interface (`Fonte`). O extract que lê o banco do Domínio fica
+no repositório privado do escritório. Aqui entra a `FonteArquivos`, e um
+gerador determinístico escreve CSV/XLSX no **mesmo layout** das tabelas do
+Domínio. Os arquivos passam por uma camada de qualidade, porque é a entrada
+mais sujeita a erro de digitação e de formato. Do contrato do raw em diante,
+o código é o mesmo.
+
 ```mermaid
 flowchart LR
-    G["gerador<br/>CSV/XLSX no layout<br/>do Domínio"] --> F
-    subgraph ETL ["etl/"]
-        F["FonteArquivos<br/>qualidade.limpa"] --> R["raw_hist<br/>uma geração por carga"]
-        R -->|publicação atômica| V["raw.* (views)<br/>geração vigente"]
-        V --> T["transform<br/>11 marts mensais"]
+    subgraph PRIV ["produção (repositório privado)"]
+        D[("banco do Domínio<br/>SAP SQL Anywhere")] --> X["extract JDBC"]
     end
-    F -.->|relatório e rejeitados| O[("ops.*")]
-    R -.->|manifesto| O
+    subgraph PUB ["este repositório"]
+        G["gerador determinístico"] --> C["CSV / XLSX<br/>layout do Domínio"]
+        C --> F["FonteArquivos"]
+        F --> Q["qualidade<br/>normaliza / rejeita"]
+    end
+    X --> K
+    Q --> K["contrato do raw<br/>raw_schema"]
+    K --> R["raw_hist<br/>uma geração por carga"]
+    R -->|validada e publicada| V["raw.* (views)"]
+    V --> T["transform<br/>11 marts mensais"]
     T --> M[("mart.*")]
-    M --> A["Streamlit<br/>app.py + pages/"]
-    M --> P["PDF<br/>Jinja2 + Playwright + Kaleido"]
+    M --> A["Streamlit"]
+    M --> P["PDF"]
+    Q -.->|relatório e rejeitados| O[("ops.*")]
+    R -.->|manifesto| O
     O --> A
 ```
 
 1. **Fonte.** O orquestrador (`etl/main.py`) lê cada tabela de origem pela
-   interface `Fonte` (`etl/fonte/base.py`). Aqui ela é implementada por
+   interface `Fonte` (`etl/fonte/base.py`). A janela de cada tabela continua
+   sendo decidida pelo orquestrador. Neste repositório a implementação é a
    `FonteArquivos`, que lê um CSV ou XLSX por tabela. O contrato de colunas e
-   tipos de cada tabela está em `etl/raw_schema.py`.
+   tipos de cada tabela, igual ao que o driver JDBC entrega, está em
+   `etl/raw_schema.py`.
 2. **Qualidade.** Antes do contrato, `etl/qualidade.py` normaliza o que é
    normalizável e rejeita o resto com o motivo (detalhes abaixo).
 3. **Raw com gerações.** Cada carga grava uma geração nova em `raw_hist.*`.
