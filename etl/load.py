@@ -135,7 +135,7 @@ def ensure_schemas() -> None:
             if antigas:
                 raise LayoutRawAntigo(
                     f"raw no layout ANTIGO ({len(antigas)} tabela(s), ex. {antigas[:3]}): "
-                    f"rode scripts/migra_geracao_raw.py com o servico parado (RUNBOOK_DEPLOY secao 8)")
+                    f"este banco foi criado por uma versao anterior; recrie-o vazio e rode a carga de novo")
             garante_ops(cur)
             garante_alteracoes(cur)
             if tipos:

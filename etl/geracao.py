@@ -127,7 +127,7 @@ DDL_OPS = (
            PRIMARY KEY (table_name, codi_emp, fatia))""",
     """INSERT INTO ops.raw_generation (generation_id, run_id, table_name, status, motivo)
        VALUES (0, NULL, '*', 'PUBLISHED',
-               'LEGACY: historico gravado antes da geracao por linha (R2, 10/set/2026)')
+               'LEGACY: historico gravado antes da geracao por linha')
        ON CONFLICT (generation_id) DO NOTHING""",
 )
 

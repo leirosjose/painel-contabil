@@ -346,7 +346,6 @@ FRASE_IMP_SEM_INFO = "sem informação de impostos no período"
 # com o CARD. Nenhum dos dois exibe R$ 0,00, que seria FALSO.
 FRASE_IMP_SO_RETENCAO = (
     "sem impostos próprios no período (apenas retenções de terceiros)")
-FONTE_SEM_DADO = "sem_dado"
 
 
 def encargos_sem_inss_patronal(regime_df, encargos_df, periods):
@@ -1071,9 +1070,6 @@ def irpj_contabil_pm(imp_df, bal_ir_df, periods):
     if float(irpj_guia_por_mes(imp_df, periods).fillna(0).abs().sum()) >= _EPS_MOVIMENTO:
         return {}
     return irpj_csll_pago_pm(bal_ir_df, periods) if bal_ir_df is not None else {}
-
-
-LINHAS_IRPJ_CSLL = ("IRPJ", "CSLL")
 
 
 def _competencia_do_trimestre(comp):

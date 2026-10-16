@@ -1,6 +1,1 @@
 target-version = "py311"
-
-# Divida pre-existente de estilo em dois arquivos grandes; sai no commit de higiene.
-[lint.per-file-ignores]
-"app.py" = ["E402", "E701", "F841", "F401"]
-"pdf_generator.py" = ["E402", "E701", "F841", "F401"]

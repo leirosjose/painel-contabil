@@ -10,12 +10,10 @@ Nota: `etl/extract.py` mantém limpeza de CNPJ via `.str.replace` vectorizado
 """
 
 import math
-import os
 import re
 import unicodedata
 
 import pandas as pd
-import psycopg2
 
 from etl.mappings import NOMES_MES, TIPO_PROCESS_NOMES
 
@@ -246,41 +244,6 @@ def label_empresa(nome, badges="", cnpj=None):
     digits = only_digits(cnpj)
     partes = [str(nome).rstrip(), str(badges).strip(), digits]
     return " ".join(p for p in partes if p.strip())
-
-
-def get_regime(codi_emp, competencia, conn=None):
-    """Consulta regime tributário de uma empresa em um mês.
-
-    Lê de `mart.empresa_regime_periodo`. Retorna
-    o valor da coluna `regime`:
-      'simples'         — paga DAS naquele mês (efsdoimp codi_imp=44)
-      'real_presumido'  — paga outros impostos OU tem dedução 3010201%
-      None              — sem dado no mês (sem linha no mart)
-
-    `conn` opcional: psycopg2 connection já aberta (evita reabrir em loops).
-    Se omitido, abre e fecha conexão própria.
-    """
-    own_conn = conn is None
-    if own_conn:
-        conn = psycopg2.connect(
-            host=os.getenv("PG_HOST", "localhost"),
-            port=int(os.getenv("PG_PORT", "5432")),
-            dbname=os.getenv("PG_DB", "painel_bi"),
-            user=os.getenv("PG_USER", "postgres"),
-            password=os.getenv("PG_PASS", ""),
-        )
-    try:
-        with conn.cursor() as cur:
-            cur.execute(
-                "SELECT regime FROM mart.empresa_regime_periodo "
-                "WHERE codi_emp = %s AND competencia = %s",
-                (int(codi_emp), str(competencia)),
-            )
-            row = cur.fetchone()
-        return row[0] if row else None
-    finally:
-        if own_conn:
-            conn.close()
 
 
 def regime_dominante(regime_df):

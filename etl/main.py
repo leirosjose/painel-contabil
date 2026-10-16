@@ -171,16 +171,16 @@ def format_run_report(report: dict) -> str:
         L.append(f"  raw lido: {len(ext)} tabela(s), {sum(ext.values())} linha(s)")
     if report.get("overlap_trim"):
         L.append(f"  overlap fobases: {report['overlap_trim']} linha(s) "
-                 f"aparada(s) (Bug 21, esperado)")
+                 f"aparada(s) (mes anterior a janela, esperado)")
     if report.get("overlap_trim_foresc"):
         L.append(f"  overlap forescisoes: {report['overlap_trim_foresc']} linha(s) "
-                 f"aparada(s) (26-B, esperado)")
+                 f"aparada(s) (mes anterior a janela, esperado)")
     if report.get("clamp_fora"):
         L.append(f"  ctlancto fora da janela ignorado no transform: "
                  f"{report['clamp_fora']} linha(s)")
     cc = report.get("cascata_clamp", {})
     if cc:
-        L.append("  cascata clampada a janela (guard Bug 22): "
+        L.append("  cascata clampada a janela: "
                  + ", ".join(f"{k}={v}" for k, v in cc.items())
                  + " par(es) fora nao tocado(s) no mart")
     sd = report.get("si_descartado", {})
@@ -319,17 +319,17 @@ def parse_args() -> argparse.Namespace:
         choices=["auto", "always", "never"],
         default="auto",
         help=("Extração de ctsaldo_inicial: 'auto' e 'always' extraem SEMPRE "
-              "(Bug 15-B — o saldo depende do corte --inicio); 'never' pula (debug)."),
+              "(o saldo depende do corte --inicio); 'never' pula (debug)."),
     )
     parser.add_argument(
         "--probe-janela",
         action="store_true",
-        help=("Bug 23 v4: imprime a decisão da janela incremental (watermark "
+        help=("Imprime a decisão da janela incremental (watermark "
               "× fim declarado da origem) em JSON e sai, sem rodar nada."),
     )
     parser.add_argument(
         "--aceitar-encolhimento", action="append", default=[], metavar="TABELA[:CODI_EMP[:FATIA]]",
-        help="libera a guarda de encolhimento (R2) nesse escopo; exige --motivo, que vai pro "
+        help="libera a guarda de encolhimento nesse escopo; exige --motivo, que vai pro "
              "manifesto. A guarda de TABELA (perda > 5%% do pedido) so libera com o nome da "
              "tabela sozinho")
     parser.add_argument("--motivo", default=None,
@@ -346,7 +346,7 @@ def valida_janela(inicio: str, fim: str) -> None:
     if inicio > fim:
         raise ValueError(
             f"janela invertida: --inicio {inicio} > --fim {fim} — nada seria "
-            f"processado (Bug 23; competência futura nos marts?). Use uma "
+            f"processado (competência futura nos marts?). Use uma "
             f"janela com inicio <= fim."
         )
 
@@ -612,7 +612,7 @@ def _libera_lock_run(conn) -> None:
             cur.execute("SELECT pg_advisory_unlock(%s)", (_LOCK_ID_RUN,))
         conn.commit()
     except Exception as exc:  # noqa: BLE001 — liberar o lock nunca derruba o run
-        print(f"  AVISO: liberar o lock do D13 falhou: {exc}", flush=True)
+        print(f"  AVISO: liberar o lock do run falhou: {exc}", flush=True)
     finally:
         conn.close()
 
@@ -1085,7 +1085,7 @@ def run_transform(raw: dict, inicio: str, fim: str,
         out, n_fora = clamp_janela_competencia(df, inicio, fim)
         if n_fora:
             _log(f"AVISO {nome}: {n_fora} par(es) fora da janela "
-                 f"[{inicio}, {fim}] clampado(s) da cascata (Bug 22)")
+                 f"[{inicio}, {fim}] clampado(s) da cascata")
             if report is not None:
                 report.setdefault("cascata_clamp", {})[nome] = n_fora
         return out
@@ -1212,7 +1212,7 @@ def valida_flags(args) -> None:
     aceitar = getattr(args, "aceitar_encolhimento", None) or []
     if aceitar and not (getattr(args, "motivo", None) or "").strip():
         sys.stderr.write("ERRO: --aceitar-encolhimento exige --motivo \"texto\": a liberacao "
-                         "fica registrada no manifesto da geracao (R2).\n")
+                         "fica registrada no manifesto da geracao.\n")
         raise SystemExit(2)
     if aceitar and args.skip_extract:
         sys.stderr.write("ERRO: --aceitar-encolhimento nao tem efeito com --skip-extract "

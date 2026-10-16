@@ -8,15 +8,13 @@ import time
 import warnings
 from datetime import date
 
-warnings.filterwarnings("ignore", message=".*SQLAlchemy.*")
-
 import pandas as pd
 import plotly.graph_objects as go
 import psycopg2
 import streamlit as st
 from dotenv import load_dotenv
 
-from etl.mappings import GRUPOS_BAL, NOMES_MES
+from etl.mappings import GRUPOS_BAL
 from etl.queries import (
     SQL_COBERTURA_EMPRESAS,
     SQL_PASSIVO_IRPJ_CSLL,
@@ -75,6 +73,9 @@ from etl.metrics import (
     tabela_impostos,
 )
 
+# read_sql com conexao psycopg2 avisa que prefere SQLAlchemy; o aviso nao se aplica.
+warnings.filterwarnings("ignore", message=".*SQLAlchemy.*")
+
 load_dotenv()
 
 # Celula AUSENTE nas tabelas que podem receber NaN (Impostos, Indicadores):
@@ -84,7 +85,6 @@ PLACEHOLDER_AUSENTE = "—"
 
 # ── Cores ─────────────────────────────────────────────────────────────────────
 
-COR_PRIMARIA = "#1a3a5c"
 COR_BOA      = "#2ecc71"
 COR_RUIM     = "#e74c3c"
 COR_ATENCAO  = "#f39c12"
@@ -351,8 +351,6 @@ def render_dashboard(emp_ids, de_str, ate_str, empresa_nome, empresa_cnpj,
     # NÃO usar mean(pct_impostos) (quebra quando filiais zeram deduções: a média
     # simples dilui o % da matriz pelas filiais zeradas).
     # min_count=1 preserva NaN quando todos os meses são sem_deducao/sem_dado (fmt_pct → '—').
-    imp_por_mes = S["imp_pm"]
-    pct_imp_pm = S["pct_imp_pm"]
     # Agregação do KPI usa SUM/SUM ao agregar meses (média ponderada), não
     # clean_mean da série mensal. O denominador do % é o fat_pm EXIBIDO (não
     # base_receita — que pra R/P é receita contábil e faria o par R$/% do card
@@ -363,10 +361,6 @@ def render_dashboard(emp_ids, de_str, ate_str, empresa_nome, empresa_cnpj,
     if "valo_bruto" not in folha_df.columns:
         folha_df["valo_bruto"] = 0
     folha_pm = S["folha_pm"]
-    # O card exibe "% Folha + Encargos" — encargo MENSAL fiel a GUIA
-    # (mart.encargos_mensais), nunca estoque 2xx. Mes sem guia entra
-    # como folha-only no ratio; periodo todo sem guia -> "—" no help.
-    pct_folenc_pm = S["pct_folenc_pm"]
     # KPI agregado usa SUM/SUM (média ponderada), mesmo padrão de
     # pct_imp_med. clean_mean de pcts
     # mensais distorce quando numerador/denominador não são proporcionais.
@@ -578,9 +572,7 @@ def render_dashboard(emp_ids, de_str, ate_str, empresa_nome, empresa_cnpj,
             nfse_total = float(fat_nfse_pm.sum())
             imob_total = float(fat_imob_pm.sum())
             # O card "Total" e o faturamento REAL — o MESMO numero do hero
-            # "Faturamento Total". As 3 origens somam pra ele por construcao
-            # (invariante travado em test_invariante_outras_receitas_fecha_
-            # serie_card_e_total, tests/test_app_tela.py).
+            # "Faturamento Total". As 3 origens somam pra ele por construcao.
             tot_total  = nfe_total + nfse_total + imob_total
             dev_total  = float(fat_df["valo_devolucoes"].fillna(0).sum()) if "valo_devolucoes" in fat_df.columns else 0.0
             # Componentes primeiro, soma por ultimo --
@@ -1132,11 +1124,10 @@ def _etl_cleanup():
 
 def _make_badges(cov):
     badges = ""
-    if cov.get("tem_fat"):   badges += "📊"
-    if cov.get("tem_imp"):   badges += "💰"
-    if cov.get("tem_func"):  badges += "👥"
-    if cov.get("tem_folha"): badges += "💵"
-    if cov.get("tem_bal"):   badges += "📒"
+    for flag, icone in (("tem_fat", "📊"), ("tem_imp", "💰"), ("tem_func", "👥"),
+                        ("tem_folha", "💵"), ("tem_bal", "📒")):
+        if cov.get(flag):
+            badges += icone
     return badges or "⚠️"
 
 
@@ -1950,7 +1941,6 @@ _IDLE_TIMEOUT_SEC = 30 * 60   # mata pipeline se ficar 30min sem produzir output
 
 def _reader_thread(stream, q):
     """Lê linhas do subprocess em thread daemon — não bloqueia o Streamlit."""
-    import queue as _qmod
     try:
         for line in iter(stream.readline, ""):
             q.put(line)

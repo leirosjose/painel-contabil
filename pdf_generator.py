@@ -12,8 +12,6 @@ import zipfile
 from datetime import datetime
 from pathlib import Path
 
-warnings.filterwarnings("ignore", message=".*SQLAlchemy.*")
-
 import kaleido
 import pandas as pd
 import plotly.graph_objects as go
@@ -55,7 +53,6 @@ from etl.metrics import (
     cards_saldo_invertido,
     folha_destaques as _folha_destaques,
     folha_por_linha as _folha_por_linha,
-    impostos_sem_irpj_proprio as _impostos_sem_irpj_proprio,
     legenda_travessao as _legenda_travessao,
     maiores_linhas as _maiores_linhas,
     irpj_contabil_pm as _irpj_contabil_pm,
@@ -67,6 +64,9 @@ from etl.metrics import (
     last_valid as _last_valid,
     series_mensais as _series_mensais,
 )
+
+# read_sql com conexao psycopg2 avisa que prefere SQLAlchemy; o aviso nao se aplica.
+warnings.filterwarnings("ignore", message=".*SQLAlchemy.*")
 
 # Cores das métricas — espelham --cor-* em templates/base.html.
 # Plotly não lê CSS variables; constantes mantêm os hex em UM lugar só
@@ -1329,7 +1329,6 @@ def _build_context(fat_df, impd_df, folha_df, func_df, bal_df, spark_dfs,
     # NÃO usar mean(pct_impostos) (quebra quando filiais zeram deduções).
     # min_count=1 preserva NaN quando todos os meses são sem_deducao/sem_dado (fmt_pct → '—').
     imp_pm = S["imp_pm"]
-    rec_imp_pm = S["rec_imp_pm"]
     folha_pm = S["folha_pm"]
 
     # Movimentacao de pessoal: series do metrics (fonte unica, compartilhada
@@ -1361,8 +1360,6 @@ def _build_context(fat_df, impd_df, folha_df, func_df, bal_df, spark_dfs,
     liq_c = S["liq_c"]
     liq_s = S["liq_s"]
     end_p = S["end_p"]
-    pct_imp = S["pct_imp_pm"]
-    pct_fol = S["pct_fol_pm"]
     pct_luc = S["pct_luc_pm"]
 
     # Agregação do KPI usa SUM/SUM ao agregar meses (média ponderada por
@@ -1375,7 +1372,6 @@ def _build_context(fat_df, impd_df, folha_df, func_df, bal_df, spark_dfs,
     # O card "% Folha + Encargos" usa encargo MENSAL fiel a GUIA
     # (mart.encargos_mensais), NUNCA o estoque 2xx do balancete.
     pct_folenc_med = K["pct_folenc_med"]
-    enc_total = K["enc_total"]
     pct_luc_med = K["pct_luc_med"]
     # Lucratividade CONTABIL (resultado liquido / receita contabil do
     # mart.dre_mensal). Supressao SO por dado (sem movimento de DESPESA na
@@ -1384,7 +1380,6 @@ def _build_context(fat_df, impd_df, folha_df, func_df, bal_df, spark_dfs,
     lc_val = _last_valid(liq_c)
     ls_val = _last_valid(liq_s)
     ed_val = _last_valid(end_p)
-    luc_val = _last_valid(pct_luc)
 
     # ── Spark series ────────────────────────────────────────────────────
     # Cada série spark é reindexada em spark_periods pra evitar gaps.
@@ -1642,7 +1637,6 @@ def _build_context(fat_df, impd_df, folha_df, func_df, bal_df, spark_dfs,
     # Janela EFETIVA: total e media vem do metrics, que ja aparou a
     # cauda de meses nao fechados — a media divide pelos meses COM dado.
     fat_total = K["fat_total"]
-    fat_media = K["fat_media"]
     n_efetivo = len(S["periods_efetivos"])
     # Range de 1 mês tambem compara YoY (com o mesmo mês do ano anterior) —
     # o "1 mês isolado" só quando nem YoY ha.

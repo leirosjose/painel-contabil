@@ -3114,7 +3114,7 @@ class TestResolverChrome:
         assert _resolver_chrome() == str(exe)
 
     def test_sem_env_nenhuma_devolve_None(self, monkeypatch):
-        # Mac de dev: cai no find_browser do choreographer, como sempre foi.
+        # Sem a variavel: cai no find_browser do choreographer.
         from pdf_generator import _resolver_chrome
         monkeypatch.delenv("CHROME_PATH", raising=False)
         monkeypatch.delenv("PLAYWRIGHT_BROWSERS_PATH", raising=False)

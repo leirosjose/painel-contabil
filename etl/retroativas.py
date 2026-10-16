@@ -88,7 +88,7 @@ def garante_alteracoes(cur) -> None:
     cur.execute("INSERT INTO ops.schema_version (versao, detalhe) VALUES (%s, %s) "
                 "ON CONFLICT DO NOTHING",
                 (VERSAO_ALTERACOES_RETROATIVAS,
-                 "ops.alteracoes_retroativas (Ordem 21): aditivo, sem janela de manutencao"))
+                 "ops.alteracoes_retroativas: aditivo, sem janela de manutencao"))
 
 
 # ---------------------------------------------------------------------------
