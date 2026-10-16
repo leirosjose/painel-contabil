@@ -37,6 +37,7 @@ PLANO = (
     (27, "401060101", "PROVISÃO PARA IRPJ E CSLL", 7),
 )
 CONTA_BANCOS = 2
+CAIXA = 1
 (BANCOS, CLIENTES, ESTOQUE, IMOBILIZADO, FORNECEDORES, IMPOSTOS, IRPJ, CSLL, SALARIOS_PAGAR, ENCARGOS_REC,
  EMPRESTIMOS, CAPITAL, RECEITA_VENDAS, RECEITA_SERVICOS, DED_ICMS, DED_PIS, DED_COFINS, CMV, SALARIOS,
  ENCARGOS, ALUGUEL, FINANCEIRAS, PROVISAO_IR) = (2, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 16, 17, 18, 19, 20,
@@ -119,6 +120,8 @@ def gera_contabil(rnd, fiscal: dict, folha: dict) -> dict:
             lanca(e.codi, fim, SALARIOS_PAGAR, BANCOS, proventos[k])
             lanca(e.codi, f"{mes}-20", ENCARGOS_REC, BANCOS, anterior["encargos"])
             lanca(e.codi, fim, ENCARGOS, ENCARGOS_REC, encargos[k])
+            lanca(e.codi, f"{mes}-02", CAIXA, BANCOS, 2_000.0)
+            lanca(e.codi, f"{mes}-26", ALUGUEL, CAIXA, rnd.uniform(1_200.0, 1_900.0))
             lanca(e.codi, f"{mes}-15", ALUGUEL, BANCOS, max(3_000.0, receita * 0.03))
             lanca(e.codi, f"{mes}-25", FINANCEIRAS, BANCOS, receita * 0.003)
             lanca(e.codi, f"{mes}-20", IRPJ, BANCOS, anterior["ir"])

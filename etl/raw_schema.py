@@ -13,7 +13,8 @@ ou arquivos) tem de entregar exatamente isto:
 DATA, VALOR, INTEIRO, TEXTO = "data", "valor", "inteiro", "texto"
 
 TIPOS: dict[str, dict[str, str]] = {
-    "geempre": {"codi_emp": INTEIRO, "nome_emp": TEXTO, "cgce_emp": TEXTO, "stat_emp": TEXTO},
+    "geempre": {"codi_emp": INTEIRO, "nome_emp": TEXTO, "apel_emp": TEXTO, "cgce_emp": TEXTO,
+                "stat_emp": TEXTO},
     "ctcontas": {"codi_emp": INTEIRO, "codi_cta": INTEIRO, "clas_cta": TEXTO, "nome_cta": TEXTO,
                  "grdre_cta": INTEIRO},
     "ctlancto": {"codi_emp": INTEIRO, "nume_lan": INTEIRO, "data_lan": DATA, "cdeb_lan": INTEIRO,

@@ -135,7 +135,8 @@ def test_coluna_do_contrato_ausente_levanta_erro_claro(tmp_path):
 
 
 def test_fonte_limpa_antes_do_contrato_e_guarda_o_relatorio(tmp_path):
-    _csv(tmp_path, "geempre", [{"codi_emp": 101, "nome_emp": "ALFA", "cgce_emp": "89039653000198", "stat_emp": "A"}])
+    _csv(tmp_path, "geempre", [{"codi_emp": 101, "nome_emp": "ALFA", "apel_emp": "ALFA", "cgce_emp": "89039653000198",
+                                  "stat_emp": "A"}])
     _csv(tmp_path, "efsaidas", [
         {"codi_emp": 101, "codi_sai": 1, "dsai_sai": "31/01/2024", "vcon_sai": "1.000,50", "codi_nat": 5102, "codi_acu": 1},
         {"codi_emp": 999, "codi_sai": 2, "dsai_sai": "2024-01-31", "vcon_sai": "10", "codi_nat": 5102, "codi_acu": 1},
@@ -148,7 +149,8 @@ def test_fonte_limpa_antes_do_contrato_e_guarda_o_relatorio(tmp_path):
 
 
 def test_lancamento_e_parcela_conferidos_contra_os_cadastros(tmp_path):
-    _csv(tmp_path, "geempre", [{"codi_emp": 101, "nome_emp": "ALFA", "cgce_emp": "89039653000198", "stat_emp": "A"}])
+    _csv(tmp_path, "geempre", [{"codi_emp": 101, "nome_emp": "ALFA", "apel_emp": "ALFA", "cgce_emp": "89039653000198",
+                                  "stat_emp": "A"}])
     _csv(tmp_path, "ctcontas", [{"codi_emp": 101, "codi_cta": 10, "clas_cta": "1", "nome_cta": "CAIXA", "grdre_cta": None}])
     _csv(tmp_path, "ctlancto", [
         {"codi_emp": 101, "nume_lan": 1, "data_lan": "2024-01-02", "cdeb_lan": 10, "ccre_lan": 10, "vlor_lan": 1, "orig_lan": 1},

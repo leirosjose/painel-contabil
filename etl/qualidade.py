@@ -32,7 +32,7 @@ M_PARCELA_ORFA = "parcela sem nota de serviço"
 M_CONTA = "conta fora do plano de contas"
 
 ANO_MIN, ANO_MAX = 1990, 2100
-COLUNAS_NOME = frozenset({"nome_emp", "nome_cta"})
+COLUNAS_NOME = frozenset({"nome_emp", "apel_emp", "nome_cta"})
 
 _RE_ISO = re.compile(r"(\d{4})-(\d{2})-(\d{2})(?:[ T]00:00:00)?")
 _RE_BR = re.compile(r"(\d{2})/(\d{2})/(\d{4})")

@@ -14,6 +14,7 @@ class Empresa:
     perfil: str          # comercio | servicos | industria | imobiliaria
     receita_base: float  # faturamento mensal médio
     empregados: int
+    fantasia: str
 
     @property
     def cnpj(self) -> str:
@@ -21,12 +22,16 @@ class Empresa:
 
 
 EMPRESAS = (
-    Empresa(101, "ALFA FICTÍCIA COMÉRCIO DE ALIMENTOS LTDA", "89039653", "0001", "simples", "comercio", 180_000, 3),
-    Empresa(102, "BETA FICTÍCIA SERVIÇOS TÉCNICOS LTDA", "76352993", "0001", "presumido", "servicos", 120_000, 4),
-    Empresa(103, "GAMA FICTÍCIA INDÚSTRIA DE EMBALAGENS LTDA", "91634207", "0001", "real", "industria", 900_000, 6),
+    Empresa(101, "ALFA FICTÍCIA COMÉRCIO DE ALIMENTOS LTDA", "89039653", "0001", "simples", "comercio", 180_000, 3,
+            "ALFA FICTÍCIA"),
+    Empresa(102, "BETA FICTÍCIA SERVIÇOS TÉCNICOS LTDA", "76352993", "0001", "presumido", "servicos", 120_000, 4,
+            "BETA FICTÍCIA"),
+    Empresa(103, "GAMA FICTÍCIA INDÚSTRIA DE EMBALAGENS LTDA", "91634207", "0001", "real", "industria", 900_000, 6,
+            "GAMA FICTÍCIA"),
     Empresa(104, "DELTA FICTÍCIA EMPREENDIMENTOS IMOBILIÁRIOS LTDA", "98110021", "0001", "presumido", "imobiliaria",
-            250_000, 2),
-    Empresa(105, "GAMA FICTÍCIA INDÚSTRIA DE EMBALAGENS LTDA", "91634207", "0002", "real", "industria", 300_000, 3),
+            250_000, 2, "DELTA FICTÍCIA"),
+    Empresa(105, "GAMA FICTÍCIA INDÚSTRIA DE EMBALAGENS LTDA", "91634207", "0002", "real", "industria", 300_000, 3,
+            "GAMA FICTÍCIA FILIAL"),
 )
 
 MESES = tuple(f"{a}-{m:02d}" for a in (2023, 2024, 2025) for m in range(1, 13)
@@ -65,5 +70,6 @@ def r2(x: float) -> float:
 
 
 def gera_geempre() -> pd.DataFrame:
-    return pd.DataFrame([{"codi_emp": e.codi, "nome_emp": e.nome, "cgce_emp": e.cnpj, "stat_emp": "A"}
+    return pd.DataFrame([{"codi_emp": e.codi, "nome_emp": e.nome, "apel_emp": e.fantasia,
+                          "cgce_emp": e.cnpj, "stat_emp": "A"}
                          for e in EMPRESAS])
