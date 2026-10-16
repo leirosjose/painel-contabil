@@ -59,7 +59,7 @@ _SQL_INCOMPLETAS = """
     SELECT q.tabela, c.coluna, round(c.pct::numeric, 4)::float AS completude
       FROM ops.qualidade_carga q
      CROSS JOIN LATERAL jsonb_each_text(q.completude) AS c(coluna, pct)
-     WHERE q.run_id = %s AND c.pct::numeric < 1
+     WHERE q.run_id = %s AND q.aceitas > 0 AND c.pct::numeric < 1
      ORDER BY completude, q.tabela, c.coluna
 """
 

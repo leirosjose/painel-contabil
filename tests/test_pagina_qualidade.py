@@ -39,3 +39,13 @@ def test_resume_a_ultima_carga_por_tabela_motivo_e_completude(monkeypatch, banco
     assert rel["tabelas"][["tabela", "lidas", "aceitas", "rejeitadas"]].values.tolist() == [["efsaidas", 3, 2, 1]]
     assert rel["motivos"][["motivo", "linhas"]].values.tolist() == [[Q.M_EMPRESA, 1]]
     assert rel["incompletas"][["coluna", "completude"]].values.tolist() == [["codi_acu", 0.5]]
+
+
+def test_tabela_vazia_nao_aparece_como_coluna_incompleta(monkeypatch, banco_scratch):
+    conn = connect_postgres()
+    vazia = Q.limpa("forescisoes", pd.DataFrame(columns=["codi_emp", "i_calculos", "i_empregados",
+                                                          "demissao", "tipo"], dtype=object), empresas={101})
+    Q.grava_relatorio(conn, 1, {"forescisoes": vazia})
+    conn.close()
+    rel = _pagina(monkeypatch, banco_scratch).carrega_relatorio()
+    assert rel["incompletas"].empty
