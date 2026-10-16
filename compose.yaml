@@ -1,12 +1,18 @@
-# docker compose up  ->  gera os dados sinteticos, carrega no Postgres e
-# sobe o painel em http://localhost:8503
+# docker compose up  ->  sobe o Postgres, carrega os dados sinteticos pelo
+# pipeline completo e serve o painel em http://localhost:8503.
+# A imagem pronta vem do GHCR; sem acesso a ela, o compose builda localmente
+# (ou force com: docker compose up --build).
 x-ambiente: &ambiente
   PG_HOST: db
   PG_PORT: "5432"
   PG_DB: painel_bi
   PG_USER: postgres
   PG_PASS: postgres
-  DADOS_DIR: /dados
+
+x-imagem: &imagem
+  image: ghcr.io/leirosjose/painel-contabil:latest
+  build: .
+  pull_policy: missing
 
 services:
   db:
@@ -23,25 +29,20 @@ services:
       retries: 30
 
   carga:
-    build: .
-    image: painel-contabil:local
+    <<: *imagem
     environment: *ambiente
-    command: >
-      sh -c "python -m gerador --saida /dados &&
-             cd etl && python main.py --empresa all --inicio 2023-12 --fim 2025-12"
-    volumes:
-      - dados:/dados
+    working_dir: /app/etl
+    command: ["python", "main.py", "--empresa", "all", "--inicio", "2023-12", "--fim", "2025-12"]
     depends_on:
       db:
         condition: service_healthy
 
   app:
-    image: painel-contabil:local
+    <<: *imagem
     environment: *ambiente
     ports:
       - "127.0.0.1:8503:8503"
     volumes:
-      - dados:/dados
       - ./saida:/app/saida
     depends_on:
       carga:
@@ -49,4 +50,3 @@ services:
 
 volumes:
   banco:
-  dados:

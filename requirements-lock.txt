@@ -10,7 +10,6 @@ charset-normalizer==3.5.1
 choreographer==1.3.0
 click==8.5.0
 colorama==0.4.6 ; sys_platform == "win32"
-et_xmlfile==2.0.0
 Faker==40.43.0
 gitdb==4.0.12
 GitPython==3.1.62
@@ -28,7 +27,6 @@ logistro==2.0.1
 MarkupSafe==3.0.3
 narwhals==2.25.0
 numpy==2.4.4
-openpyxl==3.1.5
 orjson==3.12.0
 packaging==26.3
 pandas==3.0.6

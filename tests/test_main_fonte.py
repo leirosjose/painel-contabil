@@ -55,7 +55,3 @@ def test_orquestrador_nao_carrega_driver_da_origem():
     assert "jaydebeapi" not in sys.modules
     assert not hasattr(M, "connect_sqlanywhere")
 
-
-def test_resumo_do_run_mostra_o_que_a_limpeza_fez():
-    out = M.format_run_report({"qualidade": {"rejeitadas": 11, "normalizadas": 24, "duplicatas": 5}})
-    assert "qualidade: 24 normalizada(s), 5 duplicata(s) removida(s), 11 rejeitada(s)" in out

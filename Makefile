@@ -1,7 +1,7 @@
-.PHONY: up down test test-db lint dados pdf
+.PHONY: up down test test-db lint pdf
 
-up:            ## gera os dados, carrega e sobe o painel (http://localhost:8503)
-	docker compose up --build
+up:            ## carrega os dados sinteticos e sobe o painel (http://localhost:8503)
+	docker compose up
 
 down:          ## derruba os containers e apaga o banco
 	docker compose down -v
@@ -14,9 +14,6 @@ test-db:       ## testes que exigem PostgreSQL (PG_HOST/PG_USER/PG_PASS do ambie
 
 lint:
 	ruff check .
-
-dados:         ## gera os CSV sinteticos em ./dados
-	python -m gerador --saida dados
 
 pdf:           ## PDF de uma empresa no container do app: make pdf EMPRESA=103
 	docker compose exec app python scripts/gen_pdf.py $(EMPRESA) 2025-01 2025-12

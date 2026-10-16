@@ -10,6 +10,8 @@ ou arquivos) tem de entregar exatamente isto:
 - ``texto``: str, com vazio como ``None``.
 """
 
+import pandas as pd
+
 DATA, VALOR, INTEIRO, TEXTO = "data", "valor", "inteiro", "texto"
 
 TIPOS: dict[str, dict[str, str]] = {
@@ -148,3 +150,26 @@ def limites_do_mes(inicio: str | None, fim: str | None) -> tuple[str | None, str
         y, m = (y + 1, 1) if m == 12 else (y, m + 1)
         upper = f"{y:04d}-{m:02d}-01"
     return inicio_do_mes(inicio), upper
+
+
+def aplica_contrato(df: pd.DataFrame, tabela: str) -> pd.DataFrame:
+    """Converte `df` para as colunas e tipos de `TIPOS[tabela]`, na ordem do contrato."""
+    tipos = TIPOS[tabela]
+    faltando = [c for c in tipos if c not in df.columns]
+    if faltando:
+        raise ValueError(f"{tabela}: coluna(s) do contrato ausente(s): {faltando}")
+    out = pd.DataFrame(index=df.index)
+    for col, tipo in tipos.items():
+        s = df[col]
+        if tipo == DATA:
+            out[col] = pd.to_datetime(s, errors="raise").dt.strftime("%Y-%m-%d")
+            out[col] = out[col].astype(object).where(s.notna(), None)
+        elif tipo == VALOR:
+            out[col] = pd.to_numeric(s, errors="raise").astype("float64")
+        elif tipo == INTEIRO:
+            n = pd.to_numeric(s, errors="raise")
+            out[col] = n.astype("int64") if n.notna().all() else n.astype("float64")
+        else:
+            out[col] = s.astype(object).where(s.notna(), None)
+            out[col] = out[col].map(lambda v: v if v is None else str(v))
+    return out.reset_index(drop=True)

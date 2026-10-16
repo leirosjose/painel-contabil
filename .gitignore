@@ -6,6 +6,5 @@ __pycache__/
 .env
 .DS_Store
 *.log
-# Dados sinteticos gerados e PDFs de saida: sempre regeneraveis
-/dados/
+# PDFs de saida: sempre regeneraveis
 /saida/

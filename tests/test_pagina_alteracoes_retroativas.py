@@ -32,14 +32,14 @@ def test_navegacao_automatica_desligada_no_config():
     assert re.search(r"^showSidebarNavigation\s*=\s*false\s*$", m.group(1), re.M)
 
 
-def test_app_tem_os_links_de_pagina_logo_abaixo_do_atualizar():
+def test_app_tem_exatamente_um_page_link_e_logo_abaixo_do_atualizar():
     src = APP_PY.read_text(encoding="utf-8")
-    assert src.count("st.page_link(") == 2
+    assert src.count("st.page_link(") == 1
+    assert f'st.page_link("{PAGINA}"' in src
     i_btn = src.index('etl_btn = st.button("🔄 Executar Atualização"')
-    i_link = src.index(f'st.page_link("{PAGINA}"')
-    i_qualidade = src.index('st.page_link("pages/qualidade_dados.py"')
+    i_link = src.index("st.page_link(")
     i_proximo = src.index("Seletor de MODELOS", i_btn)
-    assert i_btn < i_link < i_qualidade < i_proximo
+    assert i_btn < i_link < i_proximo
 
 
 def test_rotulos_dos_links_de_navegacao():

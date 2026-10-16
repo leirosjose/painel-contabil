@@ -4,9 +4,7 @@ import pytest
 
 import gerador
 import main as M
-from fonte.arquivos import FonteArquivos
-from gerador.escrita import escreve
-from gerador.sujeira import suja
+from fonte.sintetica import FonteSintetica
 
 COLUNAS_TEXTO = {"competencia", "fonte", "regime", "fonte_deteccao", "clas_cta", "nome_cta", "nome_emp",
                  "cgce_emp", "stat_emp", "desc_classificacao", "fonte_dicionario", "nome"}
@@ -14,11 +12,8 @@ INICIO, FIM = "2023-12", "2025-12"
 
 
 @pytest.fixture(scope="module")
-def marts(tmp_path_factory):
-    pasta = tmp_path_factory.mktemp("dados")
-    sujo, manifesto = suja(gerador.gera(gerador.SEED), gerador.SEED)
-    escreve(sujo, pasta, manifesto=manifesto)
-    raw = M.run_extract(None, INICIO, FIM, fonte=FonteArquivos(pasta))
+def marts():
+    raw = M.run_extract(None, INICIO, FIM, fonte=FonteSintetica())
     return M.run_transform(raw, INICIO, FIM)
 
 

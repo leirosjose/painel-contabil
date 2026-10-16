@@ -4,5 +4,4 @@
 .pytest_cache
 .ruff_cache
 .env
-dados
 saida

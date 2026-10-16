@@ -5,7 +5,6 @@
 #   python main.py                          # todas as empresas, últimos 12 meses
 #   python main.py --empresa 1              # empresa específica
 #   python main.py --inicio 2025-01 --fim 2025-12
-#   python main.py --dados pasta/           # pasta com os CSV/XLSX de origem
 #   python main.py --skip-extract           # lê raw do PostgreSQL, pula a origem
 # ---------------------------------------------------------------------------
 
@@ -15,15 +14,13 @@ import os
 import sys
 import time
 from datetime import date, datetime, timedelta
-from pathlib import Path
 
-from fonte.arquivos import FonteArquivos
+from fonte.sintetica import FonteSintetica
 from fonte.base import Fonte
 import pandas as pd
 
 from load import ensure_schemas, expurga_geracoes_si, upsert_mart
 import geracao as G
-import qualidade as Q
 import retroativas as RET
 from raw_escopo import ESCOPOS, GLOBAIS, pedido
 from config import CORTE_CANONICO, PG_SCHEMA_RAW
@@ -150,10 +147,6 @@ def format_run_report(report: dict) -> str:
         L.append(f"  {RET.linha_resumo(ret)}")
     if report.get("retroativas_pulada"):
         L.append(f"  retroativas: comparacao pulada ({RET.sem_ok(report['retroativas_pulada'])})")
-    qual = report.get("qualidade")
-    if qual:
-        L.append(f"  qualidade: {qual['normalizadas']} normalizada(s), {qual['duplicatas']} duplicata(s) "
-                 f"removida(s), {qual['rejeitadas']} rejeitada(s) (pagina Qualidade dos dados)")
 
     alertas = []
     for tab, d in sorted(report.get("dedup_delta", {}).items()):
@@ -234,16 +227,6 @@ def _espelha_log(resumo: str) -> None:
 # CLI
 # ---------------------------------------------------------------------------
 
-RAIZ = Path(__file__).resolve().parent.parent
-
-
-def _pasta_dados_padrao() -> Path:
-    """$DADOS_DIR (ou ./dados); caminho relativo vale a partir da raiz do projeto,
-    porque o ETL roda de dentro de etl/ (CLI, compose e o botão do painel)."""
-    p = Path(os.getenv("DADOS_DIR", "dados"))
-    return p if p.is_absolute() else RAIZ / p
-
-
 def parse_args() -> argparse.Namespace:
     hoje = date.today()
     doze_meses_atras = (hoje.replace(day=1) - timedelta(days=365)).strftime("%Y-%m")
@@ -266,12 +249,6 @@ def parse_args() -> argparse.Namespace:
         default=mes_atual,
         metavar="YYYY-MM",
         help="Mês final do período (default: mês atual)",
-    )
-    parser.add_argument(
-        "--dados",
-        default=str(_pasta_dados_padrao()),
-        metavar="PASTA",
-        help="Pasta com um CSV/XLSX por tabela de origem (default: $DADOS_DIR ou ./dados)",
     )
     parser.add_argument(
         "--skip-extract",
@@ -462,21 +439,6 @@ def _abre_run(report: dict, iniciado_em: datetime) -> int:
         return run_id
     finally:
         conn.close()
-
-
-def _grava_qualidade(run_id: int, relatorio: dict, report: dict) -> None:
-    """Grava no ops o relatório de qualidade da leitura da origem deste run."""
-    conn = connect_postgres()
-    try:
-        Q.grava_relatorio(conn, run_id, relatorio)
-    finally:
-        conn.close()
-    rej = sum(len(r.rejeitadas) for r in relatorio.values())
-    norm = sum(sum(r.normalizadas.values()) for r in relatorio.values())
-    dup = sum(r.duplicatas for r in relatorio.values())
-    report["qualidade"] = {"rejeitadas": rej, "normalizadas": norm, "duplicatas": dup}
-    _log(f"qualidade: {norm} valor(es) normalizado(s), {dup} duplicata(s) removida(s), "
-         f"{rej} linha(s) rejeitada(s) -> ops.rejeitados")
 
 
 def _status_final(report: dict) -> str:
@@ -1193,7 +1155,7 @@ def main() -> None:
 
     if args.probe_janela:
         # saída = 1 linha JSON no stdout (a UI parseia); nada de banner.
-        print(json.dumps(probe_janela(FonteArquivos(args.dados)), ensure_ascii=False), flush=True)
+        print(json.dumps(probe_janela(FonteSintetica()), ensure_ascii=False), flush=True)
         return
 
     empresa = None if args.empresa == "all" else int(args.empresa)
@@ -1228,12 +1190,11 @@ def main() -> None:
             raw = run_read_raw(empresa, report=report)
         else:
             # Registra o que a origem DECLARAVA no momento do run.
-            fonte = FonteArquivos(args.dados)
+            fonte = FonteSintetica()
             report["fim_declarado"] = fim_declarado_origem(fonte)
             _log(f"origem declara até {report['fim_declarado']}")
             raw = run_extract(empresa, inicio, fim,
                               saldo_inicial_mode=args.saldo_inicial, report=report, fonte=fonte)
-            _grava_qualidade(run_id, fonte.relatorio, report)
             # O overlap N-1 segue aparado antes da carga (raw fiel a janela).
             # A ancora do shift vem do VIGENTE, como no skip-extract.
             raw["fobases"], n_overlap = trim_fobases_overlap(raw.get("fobases", pd.DataFrame()), inicio)
