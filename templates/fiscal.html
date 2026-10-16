@@ -1,0 +1,89 @@
+{% extends "base.html" %}
+{% from "_macros.html" import page_header, hero_grid, page_footer, chart_block %}
+{% block body %}
+<div class="page">
+    {{ page_header("Dashboard Fiscal", empresa_nome, cnpj_label, periodo) }}
+
+    <div class="content">
+        {# HERO: 4 KPI cards #}
+        {{ hero_grid(hero_fiscal) }}
+
+        {# Layout:
+             (1) Faturamento SOZINHO em LARGURA CHEIA — serie temporal le
+                 melhor deitada. Gastos nao aparece em lugar nenhum desta
+                 pagina; fica na contabil, onde tem contexto.
+             (2) "Impostos por mes" vive so no Detalhamento de Impostos.
+             (3) Folha e Movimentacao de Pessoal lado a lado. #}
+        <div class="grid-2x2">
+            {# faixa-curta vem do ctx, nao do template: o limiar tem que ser o
+               MESMO que dimensionou o PNG, senao o chart letterboxa. #}
+            <div class="row{% if fat_faixa_curta %} faixa-curta{% endif %}">
+                {{ chart_block("Faturamento", charts.fat, "Faturamento", "⚠️ Sem dados de faturamento") }}
+            </div>
+            <div class="row">
+                {{ chart_block("Folha", charts.folha, "Folha", "⚠️ Sem dados de folha") }}
+                <div class="col block">
+                    <div class="block-title">Movimenta&ccedil;&atilde;o de Pessoal</div>
+                    {# Tabela mensal pura, sem chart: (1) a planilha de
+                       referência usa tabela, (2) a sparkline do hero ja comunica
+                       tendencia, (3) tabela + chart + nota nao cabe em A4
+                       paisagem com 12 linhas. #}
+                    {% if n_months == 1 %}
+                        <div class="func-mini-cards">
+                            <div class="mini-card">
+                                <div class="mini-label">Inicial</div>
+                                <div class="mini-value">{{ func_rows[0].inicial if func_rows else 0 }}</div>
+                            </div>
+                            <div class="mini-card">
+                                <div class="mini-label">Entradas</div>
+                                <div class="mini-value">+{{ func_rows[0].adm if func_rows else 0 }}</div>
+                            </div>
+                            <div class="mini-card">
+                                <div class="mini-label">Sa&iacute;das</div>
+                                <div class="mini-value">&minus;{{ func_rows[0].dem if func_rows else 0 }}</div>
+                            </div>
+                            <div class="mini-card">
+                                <div class="mini-label">Ativos (fim)</div>
+                                <div class="mini-value">{{ func_rows[0].final if func_rows else 0 }}{% if func_rows and func_rows[0].is_partial %}*{% endif %}</div>
+                            </div>
+                        </div>
+                    {% else %}
+                        <table class="compact-table">
+                            <thead>
+                                <tr>
+                                    <th>M&ecirc;s</th>
+                                    <th class="num">Inicial</th>
+                                    <th class="num">Entradas</th>
+                                    <th class="num">Sa&iacute;das</th>
+                                    <th class="num">Ativos (fim)</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                            {% for row in func_rows %}
+                                <tr>
+                                    <td>{{ row.mes }}</td>
+                                    <td class="num">{{ row.inicial }}{% if row.is_partial %}*{% endif %}</td>
+                                    <td class="num">{{ row.adm }}</td>
+                                    <td class="num">{{ row.dem }}</td>
+                                    <td class="num">{{ row.final }}{% if row.is_partial %}*{% endif %}</td>
+                                </tr>
+                            {% endfor %}
+                            </tbody>
+                        </table>
+                    {% endif %}
+                    {# So a legenda do marcador (*) de is_partial: a identidade
+                       fecha por construcao e o rotulo "Ativos (fim)" ja comunica.
+                       Nota so quando ALGUM mes tem (*) — orfa confunde. #}
+                    {% if func_tem_parcial %}
+                    <p style="font-size:6pt;color:#888;margin:1mm 0 0;line-height:1.3;">
+                        Meses com (*) podem estar com dados em fechamento.
+                    </p>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+
+    {{ page_footer(gerado_em) }}
+</div>
+{% endblock %}

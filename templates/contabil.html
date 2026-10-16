@@ -1,0 +1,38 @@
+{% extends "base.html" %}
+{% from "_macros.html" import page_header, hero_grid, page_footer, chart_block %}
+{% block body %}
+<div class="page">
+    {{ page_header("Dashboard Cont&aacute;bil", empresa_nome, cnpj_label, periodo) }}
+
+    <div class="content">
+        {# HERO: 4 KPI cards (paleta neutra — domínio contábil) #}
+        {{ hero_grid(hero_contabil) }}
+
+        {# GRID — paridade com a planilha de referência.
+             Linha 1: Lucratividade % ocupa toda a largura.
+             Linha 2: Faturamento × Gastos | Bancos e Aplicações.
+             Linha 3: Saldo Final do Caixa | Despesas e Custos. #}
+        <div class="grid-2x2">
+            <div class="row">
+                {{ chart_block("Lucratividade (%)", charts.lucratividade, "Lucratividade", luc_empty_msg) }}
+            </div>
+            <div class="row">
+                {# Duplicacao com a pagina fiscal e DELIBERADA: cada pagina
+                   pode ser apresentada isolada — nao remover. #}
+                {{ chart_block("Faturamento &times; Gastos", charts.fat_gastos_flat, "Faturamento x Gastos", "⚠️ Sem dados de faturamento", note=fat_gastos_note) }}
+                {{ chart_block("Bancos e Aplicações", charts.bancos, "Bancos e Aplicações", bal_ausente_msg or "⚠️ Sem saldo de bancos/aplicações no balancete", note=bancos_note) }}
+            </div>
+            <div class="row">
+                {{ chart_block("Saldo Final do Caixa", charts.caixa, "Saldo Final do Caixa", bal_ausente_msg or "⚠️ Sem saldo de caixa no balancete") }}
+                {{ chart_block("Despesas e Custos", charts.despesas, "Despesas e Custos", "⚠️ Sem despesas no balancete") }}
+            </div>
+        </div>
+
+        {# Valores do balanço (insumos dos indicadores) + fórmulas — paridade com a planilha de referência #}
+        {{ hero_grid(balanco_cards, cols=5) }}
+        <div class="block-note">{{ balanco_note }}</div>
+    </div>
+
+    {{ page_footer(gerado_em) }}
+</div>
+{% endblock %}

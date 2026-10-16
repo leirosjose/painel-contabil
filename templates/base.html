@@ -1,0 +1,346 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<style>
+:root {
+    --azul: #1a3a5c;
+    --vermelho: #e74c3c;
+    --verde: #2ecc71;
+    --cinza-claro: #f5f5f5;
+    --cinza-borda: #ddd;
+    --texto: #333;
+    /* Métricas do hero */
+    --cor-fat:    #185FA5;
+    --cor-imp:    #993C1D;
+    --cor-folenc: #854F0B;
+    --cor-func:   #0F6E56;
+    --cor-neutro: #555;     /* hero contábil — paleta separada */
+}
+@page {
+    size: A4 landscape;
+    margin: 0;
+}
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body {
+    font-family: Arial, Helvetica, sans-serif;
+    color: var(--texto);
+    font-size: 8pt;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+}
+.page {
+    width: 297mm;
+    height: 210mm;
+    position: relative;
+    overflow: hidden;
+    page-break-after: always;
+}
+.page:last-child { page-break-after: avoid; }
+
+/* Header */
+.header {
+    background: var(--azul);
+    color: #fff;
+    padding: 6mm 8mm 5mm 8mm;
+    height: 16mm;
+}
+.header h1 {
+    font-size: 11pt;
+    font-weight: bold;
+    margin-bottom: 1mm;
+    letter-spacing: 0.3px;
+}
+.header .subtitle {
+    font-size: 7.5pt;
+    opacity: 0.92;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: 280mm;
+}
+
+/* Footer */
+.footer {
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    height: 7mm;
+    padding: 0 8mm;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-size: 6pt;
+    color: #666;
+}
+
+/* Content area */
+.content {
+    position: absolute;
+    top: 16mm;
+    bottom: 7mm;
+    left: 6mm;
+    right: 6mm;
+    display: flex;
+    flex-direction: column;
+    gap: 3mm;
+    padding-top: 3mm;
+}
+.row {
+    display: flex;
+    gap: 3mm;
+    flex: 1;
+    min-height: 0;
+}
+.col { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+.col-2 { flex: 2; }
+.col-3 { flex: 3; }
+
+/* Blocks */
+.block {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+}
+.block-title {
+    font-size: 7pt;
+    font-weight: bold;
+    color: var(--azul);
+    text-transform: uppercase;
+    margin-bottom: 1mm;
+    letter-spacing: 0.4px;
+    flex-shrink: 0;
+}
+.block-chart { flex: 1; min-height: 0; }
+.block-chart img {
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
+    display: block;
+}
+.empty-section {
+    width: 100%;
+    height: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: #fafafa;
+    border: 1px dashed var(--cinza-borda);
+    color: #888;
+    font-size: 7pt;
+    font-style: italic;
+    border-radius: 2px;
+}
+
+/* Compact table */
+.compact-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 8pt;
+}
+.compact-table thead th {
+    background: var(--azul);
+    color: #fff;
+    padding: 1mm 1.5mm;
+    text-align: left;
+    font-weight: bold;
+    font-size: 7pt;
+    line-height: 1.2;
+}
+.compact-table tbody td {
+    padding: 1mm 1.5mm;
+    border-bottom: 0.3px solid #eee;
+    line-height: 1.2;
+    height: 5mm;
+}
+.compact-table tbody tr:nth-child(even) {
+    background: var(--cinza-claro);
+}
+.compact-table .num { text-align: right; }
+.text-right { text-align: right; }
+.text-negative { color: var(--vermelho); font-weight: bold; }
+.text-positive { color: var(--verde); }
+
+/* ─────────────────────────────────────────────────────────────────
+   Hero KPI cards + grid 2×2 + mini-cards
+   ──────────────────────────────────────────────────────────────── */
+
+/* Hero grid (4 KPI cards no topo) */
+.hero {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 3mm;
+    flex-shrink: 0;
+}
+
+/* KPI card base — neutro; modifier define a cor da borda esquerda */
+.kpi-card {
+    background: #fff;
+    border-left: 2mm solid #ccc;
+    border-radius: 2mm;
+    padding: 2.5mm 3mm;
+    box-shadow: 0 1px 2px rgba(0,0,0,0.06);
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    min-height: 22mm;
+}
+.kpi-card.fat    { border-left-color: var(--cor-fat); }
+.kpi-card.imp    { border-left-color: var(--cor-imp); }
+.kpi-card.folenc { border-left-color: var(--cor-folenc); }
+.kpi-card.func   { border-left-color: var(--cor-func); }
+.kpi-card.neutro { border-left-color: var(--cor-neutro); }
+/* Card de DESTAQUE das faixas dos detalhamentos: so rotulo + valor, sem
+   sparkline e sem contexto. O .kpi-card usa space-between, entao num card
+   curto o valor seria empurrado pro meio e sobraria um vao embaixo — ao lado
+   do card de % (que tem spark + 3 linhas de contexto) ficaria desalinhado.
+   Centraliza o conteudo e mantem a paleta NEUTRA: as cores do hero sao
+   semanticas, e pintar um tributo de "azul do faturamento" seria ruido. */
+.kpi-card.destaque {
+    border-left-color: var(--cor-neutro);
+    justify-content: center;
+    gap: 1mm;
+}
+
+.kpi-label {
+    font-size: 6.5pt;
+    text-transform: uppercase;
+    letter-spacing: 0.4px;
+    color: #666;
+}
+.kpi-value {
+    font-size: 14pt;
+    font-weight: 600;
+    color: #222;
+    line-height: 1.1;
+}
+.kpi-spark img {
+    width: 100%;
+    max-width: 38mm;
+    height: 7mm;
+    object-fit: contain;
+}
+.kpi-context {
+    font-size: 6.5pt;
+    color: #666;
+    line-height: 1.3;
+}
+/* Nota opcional sob o titulo de um chart_block (ex.: "saldo credor" no
+   chart de Bancos). Mesma familia visual do kpi-context. */
+.block-note {
+    font-size: 6.5pt;
+    color: #666;
+    line-height: 1.3;
+    margin-bottom: 2px;
+}
+
+/* Faixa de JANELA CURTA (fiscal, <= 3 meses): o bloco encolhe pra meia
+   largura e as margens automaticas o CENTRAM. Com 1 mes o bloco full-width
+   viraria um oceano vazio em volta de uma barra — o bargap ja mantem a barra
+   em proporcao, e isto tira o vazio de fora do plot. */
+.row.faixa-curta > .col { flex: 0 0 50%; margin: 0 auto; }
+
+/* Grid 2×2 dos blocos detalhados (abaixo do hero) */
+.grid-2x2 {
+    display: flex;
+    flex-direction: column;
+    gap: 3mm;
+    flex: 1;
+    min-height: 0;
+}
+.grid-2x2 .row { gap: 3mm; }
+
+/* Mini-cards de Funcionários (range = 1 mês) — sempre verde-azulado */
+.func-mini-cards {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 2mm;
+    flex-shrink: 0;
+}
+.mini-card {
+    background: #f8f8f8;
+    border-left: 1.5mm solid var(--cor-func);
+    padding: 2mm 3mm;
+    border-radius: 1mm;
+}
+.mini-label { font-size: 6.5pt; color: #666; }
+.mini-value { font-size: 13pt; font-weight: 600; color: #222; }
+
+/* Tipografia ajustada */
+.block-title { font-size: 8pt; font-weight: 600; }
+.compact-table { font-size: 7.5pt; }
+
+/* ─────────────────────────────────────────────────────────────────
+   Tabelas dos modelos de DETALHAMENTO
+   ──────────────────────────────────────────────────────────────── */
+
+/* Coluna de ROTULO: largura propria e quebra de linha. Rotulo cortado e
+   informacao perdida — se nao couber, quebra; nunca ellipsis. */
+.tabela-detalhe .rotulo {
+    width: 46mm;
+    white-space: normal;
+    word-break: normal;
+    /* break-word, NAO anywhere: `anywhere` partia no meio da palavra
+       ("Rescisa/o", "Faturame/nto"), que le pior que truncar. Assim quebra
+       entre palavras e so parte dentro de uma se ela sozinha nao couber. */
+    overflow-wrap: break-word;
+    text-align: left;
+}
+.tabela-detalhe thead th.rotulo { width: 46mm; }
+/* Valor monetario NUNCA quebra: sem isso o "R$" fica numa linha e o numero na
+   seguinte, dobrando a altura de cada linha — com 12 meses a tabela
+   transbordaria por cima do bloco de baixo (.page tem overflow:hidden, entao
+   o excesso seria CORTADO em silencio). */
+.tabela-detalhe .num { white-space: nowrap; }
+/* Variante DENSA (> 6 colunas de mes): 285mm menos o rotulo dividido por 12
+   da ~20mm por coluna, e um valor de 7 digitos com "R$" a 7,5pt nao cabe. Encolhe fonte,
+   rotulo e respiro — a alternativa seria tirar o "R$" das celulas, o que
+   divergiria do formato da tela. */
+.tabela-detalhe.densa { font-size: 6.2pt; }
+.tabela-detalhe.densa .rotulo,
+.tabela-detalhe.densa thead th.rotulo { width: 34mm; }
+.tabela-detalhe.densa tbody td { padding: 0.6mm 1mm; height: 4mm; }
+.tabela-detalhe.densa thead th { padding: 0.6mm 1mm; font-size: 6pt; }
+/* TOTAL e a linha de % se destacam do corpo sem virar outra tabela */
+.tabela-detalhe .linha-destaque td {
+    font-weight: bold;
+    border-top: 0.5px solid var(--cinza-borda);
+    background: #f0f0f0;
+}
+/* Linha que cresce com o CONTEUDO em vez de dividir a altura em partes
+   iguais. Sem isso uma tabela longa + notas estoura o flex:1 e o bloco
+   seguinte e desenhado POR CIMA da ultima nota. */
+.row-auto { flex: 0 0 auto; }
+/* "O que ha em Outros" em COLUNAS: ele vem DEPOIS da tabela cheia, e as
+   linhas empilhadas nao caberiam na altura restante. */
+.outros-cols {
+    column-count: 3;
+    column-gap: 6mm;
+    font-size: 6.5pt;
+}
+.outros-item {
+    display: flex;
+    justify-content: space-between;
+    gap: 2mm;
+    padding: 0.4mm 0;
+    border-bottom: 0.3px solid #eee;
+    break-inside: avoid;
+}
+.outros-item span { overflow-wrap: break-word; min-width: 0; }
+.outros-item b { white-space: nowrap; }
+
+.tabela-nota {
+    font-size: 6.5pt;
+    color: #666;
+    line-height: 1.3;
+    margin-top: 1.5mm;
+    flex-shrink: 0;
+}
+</style>
+</head>
+<body>
+{% block body %}{% endblock %}
+</body>
+</html>

@@ -1,0 +1,14 @@
+[server]
+port = 8503
+
+[client]
+toolbarMode = "minimal"
+showSidebarNavigation = false
+
+[theme]
+base = "dark"
+primaryColor = "#2E86AB"
+backgroundColor = "#0e1117"
+secondaryBackgroundColor = "#1e2329"
+textColor = "#e0e0e0"
+font = "sans serif"

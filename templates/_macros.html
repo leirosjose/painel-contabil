@@ -1,0 +1,61 @@
+{# Macros reutilizaveis entre fiscal.html e contabil.html.
+   Importadas via:
+       {% from "_macros.html" import page_header, hero_grid, page_footer, chart_block %}
+   Opcao B: todas as variaveis sao parametros explicitos (sem
+   "with context" — preferimos explicito sobre implicito). #}
+
+{# cnpj_label chega PRONTO do _build_context ("CNPJ: X" ou "CNPJ raiz: X
+   (N filiais)") — prefixo fixo aqui duplicava no grupo consolidado. #}
+{% macro page_header(titulo, empresa_nome, cnpj_label, periodo) %}
+<div class="header">
+    <h1>APRESENTA&Ccedil;&Atilde;O DE RESULTADOS &mdash; {{ titulo }}</h1>
+    <div class="subtitle">{{ empresa_nome }}&nbsp;&nbsp;|&nbsp;&nbsp;{{ cnpj_label }}&nbsp;&nbsp;|&nbsp;&nbsp;{{ periodo }}</div>
+</div>
+{% endmacro %}
+
+
+{# cols opcional: sobrescreve so a CONTAGEM de colunas do grid (mesmo
+   componente .hero/.kpi-card — usado pelo bloco de balanco, 5 cards). #}
+{% macro hero_grid(cards, cols=none) %}
+<div class="hero"{% if cols %} style="grid-template-columns: repeat({{ cols }}, 1fr);"{% endif %}>
+{% for card in cards %}
+    <div class="kpi-card {{ card.key }}">
+        <div class="kpi-label">{{ card.label }}</div>
+        <div class="kpi-value">{{ card.value }}</div>
+        {% if card.spark %}
+        <div class="kpi-spark"><img src="data:image/png;base64,{{ card.spark }}" alt=""></div>
+        {% endif %}
+        {# Sub-linha vazia NAO vira div vazia: sem o guard ela ocupava
+           altura no card. #}
+        {% if card.context %}<div class="kpi-context">{{ card.context }}</div>{% endif %}
+    </div>
+{% endfor %}
+</div>
+{% endmacro %}
+
+
+{% macro page_footer(gerado_em) %}
+<div class="footer">
+    <span>Painel Cont&aacute;bil</span>
+    <span>Gerado em {{ gerado_em }}</span>
+</div>
+{% endmacro %}
+
+
+{# `legenda` sai DEPOIS do chart, em fonte de rodape (mesma da legenda do
+   "—"): e o slot da lista do "Outros". `note` continua ANTES,
+   que e onde nota de contexto do grafico precisa estar. #}
+{% macro chart_block(title, chart, alt, empty_msg, note="", legenda="", legenda_extra="") %}
+<div class="col block">
+    <div class="block-title">{{ title }}</div>
+    {% if note %}<div class="block-note">{{ note }}</div>{% endif %}
+    <div class="block-chart">
+        {% if chart %}<img src="data:image/png;base64,{{ chart }}" alt="{{ alt }}">{% else %}<div class="empty-section">{{ empty_msg }}</div>{% endif %}
+    </div>
+    {% if legenda %}<p class="tabela-nota">{{ legenda }}</p>{% endif %}
+    {# `legenda_extra` e uma SEGUNDA linha de rodape, nao a mesma concatenada:
+       o "Outros" abre uma linha da tabela e o abatimento declara o que saiu
+       do custo — juntar viraria um paragrafo que ninguem le. #}
+    {% if legenda_extra %}<p class="tabela-nota">{{ legenda_extra }}</p>{% endif %}
+</div>
+{% endmacro %}

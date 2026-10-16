@@ -1,0 +1,103 @@
+{% extends "base.html" %}
+{% from "_macros.html" import page_header, hero_grid, page_footer, chart_block %}
+{% block body %}
+<div class="page">
+    {{ page_header("Detalhamento de Folha", empresa_nome, cnpj_label, periodo) }}
+
+    {# ESQUELETO PADRAO dos detalhamentos: FAIXA -> GRAFICO ->
+       DETALHAMENTO. A folha parte o DETALHAMENTO em dois blocos empilhados
+       -- o total e, contido nele, os principais custos -- em vez do bloco
+       unico de impostos. #}
+    <div class="content">
+        {# FAIXA: FOLHA + ENCARGOS -> % SOBRE FATURAMENTO ->
+           ENCARGOS -> FUNCIONARIOS. O 2o e o 4o sao os MESMOS dicts do hero fiscal, sem
+           recalculo; o 1o e o 3o saem do mesmo `_F` que a tabela renderiza. #}
+        {{ hero_grid(hero_folha) }}
+
+        {% if folha_tem_rubrica %}
+        {# faixa-curta vem do ctx, nao do template: o limiar tem que ser o
+           MESMO que dimensionou o PNG, senao o chart letterboxa. #}
+        <div class="row{% if folha_faixa_curta %} faixa-curta{% endif %}">
+            {# UMA barra por mes, com o total rotulado em cima: a decomposicao
+               em cores repetiria o que a tabela logo abaixo ja diz em numeros,
+               e e a tabela que o contador le. O grafico existe pra mostrar a
+               EVOLUCAO do total.
+               O TITULO sai da MESMA constante que rotula a linha da tabela e o
+               card do hero: um nome so pro mesmo universo. #}
+            {{ chart_block(folha_titulo_total, charts.folha_detalhe, "Folha mais encargos por mes", folha_empty_msg) }}
+        </div>
+
+        {# HIERARQUIA: EM CIMA O TOTAL, EMBAIXO OS PRINCIPAIS — o leitor nao
+           precisa somar a coluna de cabeca pra chegar no numero que importa. #}
+        <div class="row row-auto">
+            <div class="col block">
+                <div class="block-title">{{ folha_titulo_total }}</div>
+                {# Rotulo de linha NUNCA truncado: coluna
+                   de rotulo com largura propria e texto que QUEBRA. #}
+                <table class="compact-table tabela-detalhe{% if folha_col_labels|length > 6 %} densa{% endif %}">
+                    <thead>
+                        <tr>
+                            <th class="rotulo">&nbsp;</th>
+                            {% for lbl in folha_col_labels %}<th class="num">{{ lbl }}</th>{% endfor %}
+                        </tr>
+                    </thead>
+                    <tbody>
+                    {% for row in folha_rows %}
+                        <tr{% if row.destaque %} class="linha-destaque"{% endif %}>
+                            <td class="rotulo">{{ row.label }}</td>
+                            {% for v in row["values"] %}<td class="num">{{ v }}</td>{% endfor %}
+                        </tr>
+                    {% endfor %}
+                    </tbody>
+                </table>
+                {# So a legenda do "—", e colada na tabela que a produz. A
+                   protecao contra ler o numero pelo universo errado mora nos
+                   ROTULOS, que ficam ao lado dele. #}
+                {% if folha_notas %}<p class="tabela-nota">{{ folha_notas }}</p>{% endif %}
+            </div>
+        </div>
+
+        {% if folha_tem_destaque %}
+        {# CONTIDO, NAO ADITIVO: estas rubricas ja estao dentro da linha
+           "Folha + Encargos" acima. Somar as duas regioes conta o mesmo
+           dinheiro duas vezes, e nao ha gate aritmetico que pegue isso (a
+           contencao nao e identidade) — o subtitulo E a protecao, por isso ele
+           fica no cabecalho do bloco e nao num rodape. #}
+        <div class="row row-auto">
+            <div class="col block">
+                <div class="block-title">{{ folha_destaque_titulo }}</div>
+                <table class="compact-table tabela-detalhe{% if folha_col_labels|length > 6 %} densa{% endif %}">
+                    <thead>
+                        <tr>
+                            <th class="rotulo">Rubrica</th>
+                            {% for lbl in folha_col_labels %}<th class="num">{{ lbl }}</th>{% endfor %}
+                        </tr>
+                    </thead>
+                    <tbody>
+                    {% for row in folha_destaque_rows %}
+                        <tr>
+                            <td class="rotulo">{{ row.label }}</td>
+                            {% for v in row["values"] %}<td class="num">{{ v }}</td>{% endfor %}
+                        </tr>
+                    {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+        {% endif %}
+
+        {% else %}
+        <div class="row">
+            <div class="col block">
+                <div class="block-title">{{ folha_titulo_total }}</div>
+                <div class="block-chart">
+                    <div class="empty-section">{{ folha_empty_msg }}</div>
+                </div>
+            </div>
+        </div>
+        {% endif %}
+    </div>
+
+    {{ page_footer(gerado_em) }}
+</div>
+{% endblock %}

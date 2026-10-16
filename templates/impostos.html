@@ -1,0 +1,69 @@
+{% extends "base.html" %}
+{% from "_macros.html" import page_header, hero_grid, page_footer, chart_block %}
+{% block body %}
+<div class="page">
+    {{ page_header("Detalhamento de Impostos", empresa_nome, cnpj_label, periodo) }}
+
+    <div class="content">
+        {# O card % Impostos MORA aqui desde que saiu da faixa do fiscal:
+           mesmo dict, mesmo valor, mesma sparkline — nada e recalculado.
+           cols=1 porque e um card so; o componente .hero e o mesmo. #}
+        {{ hero_grid(hero_impostos) }}
+
+        {# UM chart so, em YoY. O card, este chart e a tabela abaixo medem o
+           MESMO universo — a guia recolhida ("o numero e o que pagou") —,
+           entao o titulo nao leva qualificador de base: nao ha duas bases na
+           pagina pra distinguir. Rotulo que mente e pior que rotulo generico. #}
+        <div class="row{% if imp_faixa_curta %} faixa-curta{% endif %}">
+            {{ chart_block("Impostos recolhidos por m&ecirc;s", charts.impostos, "Impostos por mes", "⚠️ Sem dados de impostos") }}
+        </div>
+
+        {% if not imp_tem_dado %}
+        {# Sem este bloco o `so_retencao` ("tem guias, mas todas de imposto
+           de TERCEIRO") ficaria sem superficie nenhuma e a pagina seria lida
+           como se nao houvesse dado — que e mentira diferente. #}
+        <div class="row row-auto">
+            <div class="col block">
+                <div class="empty-section">{{ imp_empty_msg }}</div>
+            </div>
+        </div>
+        {% else %}
+        <div class="row row-auto">
+            <div class="col block">
+                {# Titulo DECLARA o universo: a tabela e o card medem o MESMO
+                   universo (apurado) e o titulo diz qual e; no Simples, onde
+                   a tabela segue sendo a de guias, o titulo muda junto. #}
+                <div class="block-title">{{ imp_titulo }}</div>
+                {# Rotulo de linha NUNCA truncado: a coluna
+                   de rotulo tem largura propria e o texto QUEBRA. Cortar o
+                   nome do tributo perderia a informacao. #}
+                <table class="compact-table tabela-detalhe{% if imp_col_labels|length > 6 %} densa{% endif %}">
+                    <thead>
+                        <tr>
+                            <th class="rotulo">Tributo</th>
+                            {% for lbl in imp_col_labels %}<th class="num">{{ lbl }}</th>{% endfor %}
+                        </tr>
+                    </thead>
+                    <tbody>
+                    {% for row in imp_rows %}
+                        <tr{% if row.destaque %} class="linha-destaque"{% endif %}>
+                            <td class="rotulo">{{ row.label }}</td>
+                            {% for v in row["values"] %}<td class="num">{{ v }}</td>{% endfor %}
+                        </tr>
+                    {% endfor %}
+                    </tbody>
+                </table>
+                {# Rodape do PDF: SO a legenda do "—".
+                   O que protege o leitor sao os ROTULOS — "(carga destacada +
+                   IRPJ/CSLL)", "(guias recolhidas)", "(tributos exibidos)" —,
+                   visiveis ao lado do numero; a nota so competia com eles.
+                   Vazia quando nao ha travessao: o <p> some junto. #}
+                {% if imp_note %}<p class="tabela-nota">{{ imp_note }}</p>{% endif %}
+            </div>
+        </div>
+        {% endif %}
+    </div>
+
+    {{ page_footer(gerado_em) }}
+</div>
+{% endblock %}
