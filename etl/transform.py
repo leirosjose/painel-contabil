@@ -1734,7 +1734,9 @@ def build_impostos_destacados_mensais(
         df["num_iss_bal"].values,
         np.where(complemento_iss > 0, complemento_iss, np.nan),
     )
-    df["valo_iss"] = np.where(is_rp, valo_iss, np.nan)
+    # Numérico explícito: `num_iss_bal` vem do merge como object, e uma coluna
+    # object vira TEXT quando o mart é criado num banco novo.
+    df["valo_iss"] = pd.to_numeric(pd.Series(np.where(is_rp, valo_iss, np.nan), index=df.index))
 
     df["valo_impostos"] = valo_impostos
     df["base_receita"]  = base_receita
