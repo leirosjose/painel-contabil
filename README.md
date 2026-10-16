@@ -53,7 +53,7 @@ Nesta versão a fonte é uma interface (`Fonte`): o gerador entrega as tabelas
 no mesmo layout e com os mesmos tipos do Domínio, e do raw em diante o código
 é o mesmo da produção. Detalhes em [`docs/ARQUITETURA.md`](docs/ARQUITETURA.md).
 
-## Problemas reais e como resolvemos
+## Problemas reais e como resolvi
 
 - **Origem que regenera chaves.** Ao reprocessar, o sistema contábil apaga e
   recria lançamentos com chave nova. A cópia histórica guardava as duas
