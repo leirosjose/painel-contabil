@@ -2099,7 +2099,7 @@ if st.session_state.get("etl_stage") == "running":
                 slot["lines"][:] = slot["lines"][-20:]
             up = line.upper()
             if "EXTRACT " in up or "READ RAW" in up:
-                status = "Extraindo do SQL Anywhere..."
+                status = "Lendo a origem..."
             elif "LOAD RAW" in up:
                 status = "Carregando RAW..."
             elif "TRANSFORM" in up:

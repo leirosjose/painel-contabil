@@ -5,7 +5,8 @@
 #   python main.py                          # todas as empresas, últimos 12 meses
 #   python main.py --empresa 1              # empresa específica
 #   python main.py --inicio 2025-01 --fim 2025-12
-#   python main.py --skip-extract           # lê raw do PostgreSQL, pula SQL Anywhere
+#   python main.py --dados pasta/           # pasta com os CSV/XLSX de origem
+#   python main.py --skip-extract           # lê raw do PostgreSQL, pula a origem
 # ---------------------------------------------------------------------------
 
 import argparse
@@ -15,38 +16,17 @@ import sys
 import time
 from datetime import date, datetime, timedelta
 
-from extract import (
-    _period_start,
-    extract_ctcontas,
-    extract_ctlancto,
-    extract_efentradas,
-    extract_efimob_pagamentos,
-    extract_efsdoimp,
-    extract_efsaidas,
-    extract_efservicos,
-    extract_efservicospar,
-    extract_fobases,
-    extract_foclassificacoes_eventos,
-    extract_foempregados,
-    extract_foeventos,
-    extract_foeventosdef,
-    extract_fofgtsfilial,
-    extract_foguiagrfc,
-    extract_foguiainss,
-    extract_fomovto,
-    extract_forescisoes,
-    extract_geempre,
-    extract_hrfaturamento,
-    extract_saldo_inicial,
-)
+from fonte.arquivos import FonteArquivos
+from fonte.base import Fonte
 import pandas as pd
 
 from load import ensure_schemas, expurga_geracoes_si, upsert_mart
 import geracao as G
 import retroativas as RET
 from raw_escopo import ESCOPOS, GLOBAIS, pedido
-from config import CORTE_CANONICO, PG_SCHEMA_RAW, SA_SCHEMA
-from connections import connect_postgres, connect_sqlanywhere
+from config import CORTE_CANONICO, PG_SCHEMA_RAW
+from connections import connect_postgres
+from raw_schema import inicio_do_mes
 from transform import (
     _to_competencia,
     build_balancete_mensal,
@@ -323,9 +303,15 @@ def parse_args() -> argparse.Namespace:
         help="Mês final do período (default: mês atual)",
     )
     parser.add_argument(
+        "--dados",
+        default=os.getenv("DADOS_DIR", "dados"),
+        metavar="PASTA",
+        help="Pasta com um CSV/XLSX por tabela de origem (default: $DADOS_DIR ou ./dados)",
+    )
+    parser.add_argument(
         "--skip-extract",
         action="store_true",
-        help="Pula a extração do SQL Anywhere e lê direto do schema raw do PostgreSQL",
+        help="Pula a leitura da origem e lê direto do schema raw do PostgreSQL",
     )
     parser.add_argument(
         "--saldo-inicial",
@@ -445,36 +431,11 @@ def watermark_do_run(fim: str, fim_declarado: str | None) -> str | None:
     return min(fim, fim_declarado)
 
 
-def _max_datas_origem() -> dict:
-    """MAX das datas dos fluxos de documento da origem (read-only, 3
-    queries baratas numa conexão): efsaidas ancora o fim declarado;
-    efservicos/efentradas medem o spillover parcial além dele."""
-    conn = connect_sqlanywhere()
-    try:
-        out = {}
-        with conn.cursor() as cur:
-            for tab, col in (("efsaidas", "dsai_sai"),
-                             ("efservicos", "dser_ser"),
-                             ("efentradas", "dent_ent")):
-                cur.execute(f"SELECT MAX({col}) FROM {SA_SCHEMA}.{tab}")
-                out[tab] = cur.fetchone()[0]
-        return out
-    finally:
-        conn.close()
-
-
-def fim_declarado_origem() -> str | None:
-    """Consulta a origem (read-only, 1 query barata): mês do último
-    documento fiscal emitido — a data que o snapshot declara."""
-    conn = connect_sqlanywhere()
-    try:
-        with conn.cursor() as cur:
-            cur.execute(f"SELECT MAX(dsai_sai) FROM {SA_SCHEMA}.efsaidas")
-            row = cur.fetchone()
-    finally:
-        conn.close()
+def fim_declarado_origem(fonte: Fonte) -> str | None:
+    """Mês do último documento fiscal emitido na origem — a data que o
+    snapshot declara."""
     hoje_mes = date.today().strftime("%Y-%m")
-    return mes_declarado(row[0] if row else None, hoje_mes)
+    return mes_declarado(fonte.max_datas()["efsaidas"], hoje_mes)
 
 
 def _le_watermark() -> str | None:
@@ -653,14 +614,14 @@ def _checa_detector() -> None:
         raise RuntimeError("detector de geracao recusa o --skip-extract: " + "; ".join(probs[:5]))
 
 
-def probe_janela() -> dict:
+def probe_janela(fonte: Fonte) -> dict:
     """Decisão da janela incremental SEM rodar nada (consumido pela UI via
     subprocess: o usuário vê 'processado até X · origem tem até Y' ANTES do
     run). alem_declarado = mês com dado parcial além do declarado (alimenta
     o texto explicativo do painel). Read-only nas duas pontas."""
     watermark = _le_watermark()
     hoje_mes = date.today().strftime("%Y-%m")
-    maxes = _max_datas_origem()
+    maxes = fonte.max_datas()
     fim_decl = mes_declarado(maxes["efsaidas"], hoje_mes)
     spill = [maxes["efservicos"], maxes["efentradas"]]
     alem = alem_do_declarado(spill, fim_decl, hoje_mes)
@@ -713,43 +674,43 @@ def run_read_raw(empresa, report: dict | None = None) -> dict:
 
 
 def run_extract(empresa, inicio, fim, saldo_inicial_mode="auto",
-                report: dict | None = None) -> dict:
-    """Extrai todas as tabelas do SQL Anywhere. Retorna dict nome -> DataFrame."""
-    _step("EXTRACT -SQL Anywhere -> memória")
+                report: dict | None = None, *, fonte: Fonte) -> dict:
+    """Lê todas as tabelas da origem pela `fonte`. Retorna dict nome -> DataFrame."""
+    _step("EXTRACT -origem -> memória")
 
     jobs = [
-        ("geempre",         lambda: extract_geempre(empresa)),
-        ("ctcontas",        lambda: extract_ctcontas(empresa)),
-        ("ctlancto",        lambda: extract_ctlancto(empresa, inicio, fim)),
-        ("efsaidas",        lambda: extract_efsaidas(empresa, inicio, fim)),
-        ("efentradas",      lambda: extract_efentradas(empresa, inicio, fim)),
-        ("efservicos",      lambda: extract_efservicos(empresa, inicio, fim)),
+        ("geempre",         lambda: fonte.ler("geempre", empresa)),
+        ("ctcontas",        lambda: fonte.ler("ctcontas", empresa)),
+        ("ctlancto",        lambda: fonte.ler("ctlancto", empresa, inicio, fim)),
+        ("efsaidas",        lambda: fonte.ler("efsaidas", empresa, inicio, fim)),
+        ("efentradas",      lambda: fonte.ler("efentradas", empresa, inicio, fim)),
+        ("efservicos",      lambda: fonte.ler("efservicos", empresa, inicio, fim)),
         # ISS retido sofrido: a tabela nao tem data — a janela vem da nota.
-        ("efservicospar",   lambda: extract_efservicospar(empresa, inicio, fim)),
-        ("efsdoimp",        lambda: extract_efsdoimp(empresa, inicio, fim)),
-        ("foempregados",    lambda: extract_foempregados(empresa, inicio, fim)),
+        ("efservicospar",   lambda: fonte.ler("efservicospar", empresa, inicio, fim)),
+        ("efsdoimp",        lambda: fonte.ler("efsdoimp", empresa, inicio, fim)),
+        ("foempregados",    lambda: fonte.ler("foempregados", empresa, inicio, fim)),
         # fobases extrai com 1 mês de overlap pra trás — âncora do
         # shift de qtd_inicial do 1º mês. Aparado antes do upsert (main()).
-        ("fobases",         lambda: extract_fobases(empresa, _mes_anterior(inicio), fim)),
-        ("hrfaturamento",   lambda: extract_hrfaturamento(empresa, inicio, fim)),
+        ("fobases",         lambda: fonte.ler("fobases", empresa, _mes_anterior(inicio), fim)),
+        ("hrfaturamento",   lambda: fonte.ler("hrfaturamento", empresa, inicio, fim)),
         # Guias de folha (encargos fiel a guia)
-        ("foguiainss",      lambda: extract_foguiainss(empresa, inicio, fim)),
-        ("fofgtsfilial",    lambda: extract_fofgtsfilial(empresa, inicio, fim)),
-        ("foguiagrfc",      lambda: extract_foguiagrfc(empresa, inicio, fim)),
+        ("foguiainss",      lambda: fonte.ler("foguiainss", empresa, inicio, fim)),
+        ("fofgtsfilial",    lambda: fonte.ler("fofgtsfilial", empresa, inicio, fim)),
+        ("foguiagrfc",      lambda: fonte.ler("foguiagrfc", empresa, inicio, fim)),
         # Como fobases, forescisoes tambem extrai com 1 mes de
         # overlap pra tras — a demissao de N-1 liquida os ativos do mes-ancora.
         # Aparado antes do upsert (main()); so o build de funcionarios ve N-1.
-        ("forescisoes",     lambda: extract_forescisoes(empresa, _mes_anterior(inicio), fim)),
+        ("forescisoes",     lambda: fonte.ler("forescisoes", empresa, _mes_anterior(inicio), fim)),
         # Folha por RUBRICA — base do dash de Detalhamento. Janela igual a das
         # demais, SEM overlap N-1 (nao ha logica de shift aqui, ao contrario
         # do fobases).
-        ("fomovto",         lambda: extract_fomovto(empresa, inicio, fim)),
-        ("foeventos",       lambda: extract_foeventos(empresa, inicio, fim)),
-        ("foeventosdef",    lambda: extract_foeventosdef()),
-        ("foclassificacoes_eventos", lambda: extract_foclassificacoes_eventos()),
+        ("fomovto",         lambda: fonte.ler("fomovto", empresa, inicio, fim)),
+        ("foeventos",       lambda: fonte.ler("foeventos", empresa, inicio, fim)),
+        ("foeventosdef",    lambda: fonte.ler("foeventosdef")),
+        ("foclassificacoes_eventos", lambda: fonte.ler("foclassificacoes_eventos")),
         # Recebimento de parcela de venda de imovel.
         # Janela normal, SEM overlap N-1: nao ha shift nem ancora aqui.
-        ("efimob_pagamentos", lambda: extract_efimob_pagamentos(empresa, inicio, fim)),
+        ("efimob_pagamentos", lambda: fonte.ler("efimob_pagamentos", empresa, inicio, fim)),
     ]
 
     # ctsaldo_inicial é extraído SEMPRE junto com a janela. O saldo depende
@@ -757,7 +718,7 @@ def run_extract(empresa, inicio, fim, saldo_inicial_mode="auto",
     # empresas sem saldo de abertura). 'never' mantém pulo explícito (debug).
     if saldo_inicial_mode != "never":
         jobs.append(("ctsaldo_inicial",
-                     lambda: extract_saldo_inicial(empresa, inicio, fim)))
+                     lambda: fonte.saldo_inicial(empresa, inicio)))
     else:
         _log("PULA ctsaldo_inicial (modo=never)")
 
@@ -842,7 +803,7 @@ def run_load_raw(raw: dict, inicio: str, fim: str, empresa, run_id: int,
 
     # Expurgo das geracoes de saldo inicial NAO-canonicas e NAO-deste-run.
     if not raw.get("ctsaldo_inicial", pd.DataFrame()).empty:
-        manter = sorted({CORTE_CANONICO, _period_start(inicio)})
+        manter = sorted({CORTE_CANONICO, inicio_do_mes(inicio)})
         try:
             purga = expurga_geracoes_si(manter)
         except Exception as exc:  # noqa: BLE001
@@ -856,7 +817,7 @@ def run_load_raw(raw: dict, inicio: str, fim: str, empresa, run_id: int,
 
 def _mes_anterior(periodo: str | None) -> str | None:
     """Mês anterior de um período 'YYYY-MM' (overlap da âncora do
-    shift de qtd_inicial). Permissivo como _period_start: formato inesperado
+    shift de qtd_inicial). Permissivo como inicio_do_mes: formato inesperado
     ou falsy passa como veio, sem levantar."""
     if not periodo or len(periodo) != 7:
         return periodo
@@ -1019,7 +980,7 @@ def run_transform(raw: dict, inicio: str, fim: str,
     # data_corte NULL) seriam saldo de abertura ERRADO — descarta com aviso.
     si = raw.get("ctsaldo_inicial", pd.DataFrame())
     if not si.empty and "data_corte" in si.columns:
-        corte = _period_start(inicio)
+        corte = inicio_do_mes(inicio)
         stale = si["data_corte"].astype(str) != corte
         if stale.any():
             _log(f"AVISO ctsaldo_inicial: {int(stale.sum())} linha(s) com corte != {corte} descartada(s)")
@@ -1252,7 +1213,7 @@ def main() -> None:
 
     if args.probe_janela:
         # saída = 1 linha JSON no stdout (a UI parseia); nada de banner.
-        print(json.dumps(probe_janela(), ensure_ascii=False), flush=True)
+        print(json.dumps(probe_janela(FonteArquivos(args.dados)), ensure_ascii=False), flush=True)
         return
 
     empresa = None if args.empresa == "all" else int(args.empresa)
@@ -1287,10 +1248,11 @@ def main() -> None:
             raw = run_read_raw(empresa, report=report)
         else:
             # Registra o que a origem DECLARAVA no momento do run.
-            report["fim_declarado"] = fim_declarado_origem()
+            fonte = FonteArquivos(args.dados)
+            report["fim_declarado"] = fim_declarado_origem(fonte)
             _log(f"origem declara até {report['fim_declarado']}")
             raw = run_extract(empresa, inicio, fim,
-                              saldo_inicial_mode=args.saldo_inicial, report=report)
+                              saldo_inicial_mode=args.saldo_inicial, report=report, fonte=fonte)
             # O overlap N-1 segue aparado antes da carga (raw fiel a janela).
             # A ancora do shift vem do VIGENTE, como no skip-extract.
             raw["fobases"], n_overlap = trim_fobases_overlap(raw.get("fobases", pd.DataFrame()), inicio)

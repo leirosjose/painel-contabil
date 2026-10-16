@@ -80,7 +80,7 @@ def _sanitize_binary_cols(df: pd.DataFrame) -> pd.DataFrame:
     """Remove colunas que contenham valores binários (bytes, bytearray, Java byte[]).
 
     psycopg2 não consegue adaptar tipos binários para TEXT. GUIDs e outros
-    campos binários do SQL Anywhere são descartados antes do INSERT.
+    campos binários da origem são descartados antes do INSERT.
     """
     object_cols = [col for col in df.columns if df[col].dtype == object]
     if object_cols:

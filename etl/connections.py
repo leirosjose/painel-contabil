@@ -1,46 +1,10 @@
 # ---------------------------------------------------------------------------
-# connections.py — Funções de conexão com SQL Anywhere e PostgreSQL
+# connections.py — Conexão com o PostgreSQL
 # ---------------------------------------------------------------------------
 
-import jaydebeapi
 import psycopg2
 
-from config import (
-    SA_JAR, SA_LIB, SA_DRIVER, SA_URL,
-    PG_HOST, PG_PORT, PG_DB, PG_USER, PG_PASS,
-)
-
-
-def connect_sqlanywhere() -> jaydebeapi.Connection:
-    """Abre conexão com o SAP SQL Anywhere 17 via JDBC/jaydebeapi.
-
-    Returns:
-        jaydebeapi.Connection pronta para uso.
-
-    Raises:
-        RuntimeError: se o servidor não estiver acessível ou o driver falhar.
-    """
-    try:
-        conn = jaydebeapi.connect(
-            SA_DRIVER,
-            SA_URL,
-            [],          # credenciais já embutidas na URL
-            [SA_JAR],
-            libs=[SA_LIB],
-        )
-        return conn
-    except Exception as exc:
-        msg = str(exc)
-        if "connect" in msg.lower() or "refused" in msg.lower() or "timeout" in msg.lower():
-            raise RuntimeError(
-                "SQL Anywhere não está rodando em localhost:2638 — "
-                "verifique se o serviço está iniciado."
-            ) from exc
-        if "classnotfound" in msg.lower() or "jar" in msg.lower():
-            raise RuntimeError(
-                f"Driver JDBC não encontrado. Confirme que o arquivo existe:\n  {SA_JAR}"
-            ) from exc
-        raise RuntimeError(f"Falha ao conectar no SQL Anywhere: {exc}") from exc
+from config import PG_DB, PG_HOST, PG_PASS, PG_PORT, PG_USER
 
 
 def connect_postgres() -> "psycopg2.connection":
@@ -89,5 +53,4 @@ def _test(label: str, fn):
 
 if __name__ == "__main__":
     print("Testando conexões...\n")
-    _test("SQL Anywhere (localhost:2638 / Contabil)", connect_sqlanywhere)
     _test("PostgreSQL   (localhost:5432 / painel_bi)", connect_postgres)

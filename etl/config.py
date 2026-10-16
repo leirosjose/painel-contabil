@@ -6,13 +6,6 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
-# ── SQL Anywhere (origem) ──────────────────────────────────────────────────
-SA_JAR    = os.getenv("SA_JAR", "/Applications/SQLAnywhere17/System/java/sajdbc4.jar")
-SA_LIB    = os.getenv("SA_LIB", "/Applications/SQLAnywhere17/System/lib64")
-SA_DRIVER = "sap.jdbc4.sqlanywhere.IDriver"
-SA_URL    = os.getenv("SA_URL")
-SA_SCHEMA = "bethadba"
-
 # ── PostgreSQL (destino) ───────────────────────────────────────────────────
 PG_HOST   = os.getenv("PG_HOST", "localhost")
 PG_PORT   = int(os.getenv("PG_PORT", "5432"))

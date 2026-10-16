@@ -10,7 +10,7 @@
 #     passar a emitir NaN p/ conta ausente.
 #
 # Módulo PURO: importa só pandas + etl.utils + etl.mappings. SEM DB, SEM
-# psycopg2/jaydebeapi. Os consumers montam os DataFrames (raw/mart) e o
+# psycopg2. Os consumers montam os DataFrames (raw/mart) e o
 # bal_serie_df já-seedado (carry-in) e passam pra cá.
 #
 # As diferenças LEGÍTIMAS ficam FORA daqui (decisão de produto, por consumer):

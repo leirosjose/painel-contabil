@@ -1,8 +1,7 @@
 """SQL queries reutilizáveis contra o schema mart no Postgres.
 
 Separado de etl/utils.py: utilitários puros não dependem de Postgres.
-Separado de etl/extract.py: aquele extrai de SAP SQL Anywhere (bethadba.*);
-este consulta o destino (mart.*).
+Consultas sobre o destino (mart.*), não sobre a origem.
 """
 
 
