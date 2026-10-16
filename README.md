@@ -45,7 +45,9 @@ colima start --cpu 4 --memory 6
 docker compose up
 ```
 
-A imagem é nativa (arm64 ou amd64), sem emulação.
+A imagem é nativa (arm64 ou amd64), sem emulação. Com colima, clone o
+repositório dentro da sua pasta pessoal: por padrão só ela é compartilhada
+com a VM, e é por ali que os PDFs chegam em `./saida/`.
 
 ### Testes e lint, fora do Docker
 
