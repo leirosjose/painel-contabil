@@ -40,7 +40,7 @@ def test_janelas_por_tabela_continuam_decididas_pelo_orquestrador():
     assert fonte.chamadas["foeventosdef"] == (None, None, None)
 
 
-def test_saldo_inicial_nunca_pula_a_leitura():
+def test_modo_never_pula_o_saldo_inicial():
     fonte = FonteFalsa()
     raw = M.run_extract(1, "2025-01", "2025-03", saldo_inicial_mode="never", fonte=fonte)
     assert "ctsaldo_inicial" not in raw
@@ -54,3 +54,8 @@ def test_fim_declarado_vem_das_datas_da_fonte():
 def test_orquestrador_nao_carrega_driver_da_origem():
     assert "jaydebeapi" not in sys.modules
     assert not hasattr(M, "connect_sqlanywhere")
+
+
+def test_resumo_do_run_mostra_o_que_a_limpeza_fez():
+    out = M.format_run_report({"qualidade": {"rejeitadas": 11, "normalizadas": 24, "duplicatas": 5}})
+    assert "qualidade: 24 normalizada(s), 5 duplicata(s) removida(s), 11 rejeitada(s)" in out

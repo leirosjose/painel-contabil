@@ -52,7 +52,7 @@ A imagem é nativa (arm64 ou amd64), sem emulação.
 ```bash
 python3.11 -m venv .venv && source .venv/bin/activate
 pip install -r requirements-lock.txt
-make test      # 1.176 testes, sem serviços
+make test      # 1.191 testes, sem serviços
 make lint      # ruff, sem exceções por arquivo
 PG_HOST=localhost PG_USER=postgres PG_PASS=postgres make test-db   # 52 testes com PostgreSQL
 python -m pytest -m chrome     # 3 testes que sobem o Chromium de verdade
@@ -126,7 +126,7 @@ e grava em `_sujeira.json` quanto aplicou de cada tipo:
 |---|---|
 | data `31/01/2024`, valor `1.234,56`, CNPJ com máscara, nome com espaços/caixa trocados | **normaliza** e conta |
 | linha repetida | **remove** a duplicata e conta |
-| ano absurdo, coluna obrigatória vazia, empresa fora do cadastro, parcela sem nota de serviço, lançamento em conta fora do plano | **rejeita**, com o motivo |
+| ano absurdo, coluna obrigatória ou chave vazia, valor ambíguo (`1.234` sem decimais), empresa fora do cadastro, parcela sem nota de serviço, lançamento em conta fora do plano | **rejeita**, com o motivo |
 
 Nada é descartado em silêncio:
 

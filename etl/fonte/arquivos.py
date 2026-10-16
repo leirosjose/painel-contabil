@@ -45,7 +45,8 @@ class FonteArquivos:
         if csv.exists():
             return pd.read_csv(csv, dtype=str, keep_default_na=False, na_values=[""])
         if xlsx.exists():
-            return pd.read_excel(xlsx)
+            texto = {c: str for c, t in TIPOS[tabela].items() if t == TEXTO}
+            return pd.read_excel(xlsx, dtype=texto, keep_default_na=False, na_values=[""])
         raise FileNotFoundError(f"{tabela}: nem {csv.name} nem {xlsx.name} em {self.pasta}")
 
     def _existe(self, tabela: str) -> bool:

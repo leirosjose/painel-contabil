@@ -17,7 +17,7 @@ services:
     volumes:
       - banco:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U postgres -d painel_bi"]
+      test: ["CMD-SHELL", "pg_isready -h 127.0.0.1 -U postgres -d painel_bi"]
       interval: 2s
       timeout: 3s
       retries: 30
@@ -39,7 +39,7 @@ services:
     image: painel-contabil:local
     environment: *ambiente
     ports:
-      - "8503:8503"
+      - "127.0.0.1:8503:8503"
     volumes:
       - dados:/dados
       - ./saida:/app/saida

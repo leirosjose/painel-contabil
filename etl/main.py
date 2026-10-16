@@ -15,6 +15,7 @@ import os
 import sys
 import time
 from datetime import date, datetime, timedelta
+from pathlib import Path
 
 from fonte.arquivos import FonteArquivos
 from fonte.base import Fonte
@@ -27,7 +28,7 @@ import retroativas as RET
 from raw_escopo import ESCOPOS, GLOBAIS, pedido
 from config import CORTE_CANONICO, PG_SCHEMA_RAW
 from connections import connect_postgres
-from raw_schema import inicio_do_mes
+from raw_schema import RAW_KEYS, inicio_do_mes
 from transform import (
     _to_competencia,
     build_balancete_mensal,
@@ -49,57 +50,6 @@ from transform import (
 # Ajuste se as PKs reais do seu schema diferirem.
 # ---------------------------------------------------------------------------
 
-RAW_KEYS: dict[str, list[str]] = {
-    "geempre":         ["codi_emp"],
-    "ctcontas":        ["codi_emp", "codi_cta"],
-    "ctlancto":        ["codi_emp", "nume_lan"],
-    "efsaidas":        ["codi_emp", "codi_sai"],
-    "efentradas":      ["codi_emp", "codi_ent"],
-    "efservicos":      ["codi_emp", "codi_ser"],
-    # PK declarada na origem (SYS.SYSIDX).
-    "efservicospar":   ["codi_emp", "codi_ser", "parc_serp"],
-    # Chave = PK da origem; pdic_sim (slot de apuracao) preserva as
-    # guias-irmas do mesmo mes que o keep="last" do trio descartava.
-    "efsdoimp":        ["codi_emp", "codi_imp", "data_sim", "pdic_sim"],
-    "foempregados":    ["codi_emp", "i_empregados"],
-    # Grao real do calculo: i_calculos preserva os recibos RPA irmaos do
-    # mesmo mes que o keep="last" descartaria — dedup vira no-op e
-    # extract == --skip-extract (mesmo caso do pdic_sim).
-    "fobases":         ["codi_emp", "i_empregados", "competencia", "tipo_process",
-                        "i_calculos"],
-    "hrfaturamento":   ["codi_emp", "i_faturamento"],
-    # `data_corte` NA CHAVE: o si e "soma de lancamentos < --inicio",
-    # entao cada janela produz uma GERACAO propria. Sem a terceira coluna,
-    # o extract de uma janela incremental (que e um SUPERSET dos pares do
-    # corte canonico) sobrescreve o canonico IN PLACE e a carteira inteira
-    # fica sem saldo de abertura. Com ela, as geracoes convivem e
-    # `run_transform` filtra a do proprio run.
-    # MIGRACAO: banco existente NAO se atualiza sozinho (_ensure_table so
-    # faz CREATE TABLE IF NOT EXISTS).
-    "ctsaldo_inicial": ["codi_emp", "codi_cta", "data_corte"],
-    # Guias de folha (ids unicos verificados na origem)
-    "foguiainss":      ["codi_emp", "i_guiainss"],
-    "fofgtsfilial":    ["codi_emp", "i_fgtsfilial"],
-    "foguiagrfc":      ["codi_emp", "i_calculos"],
-    # Registro de rescisoes (id unico verificado na origem)
-    "forescisoes":     ["codi_emp", "i_calculos"],
-    # Folha por rubrica. A origem NAO declara indice unico na FOMOVTO —
-    # i_calculos entra na chave, como em fobases.
-    "fomovto":         ["codi_emp", "i_empregados", "data", "tipo_proces",
-                        "i_eventos", "i_calculos"],
-    "foeventos":       ["codi_emp", "i_eventos"],
-    # dicionario PADRAO de rubricas, sem codi_emp. Cobre as
-    # empresas que nunca materializaram a copia (FOEVENTOS).
-    "foeventosdef":    ["i_eventos"],
-    # dicionario GLOBAL de familias, sem codi_emp
-    "foclassificacoes_eventos": ["i_classificacao"],
-    # Recebimento de parcela de venda de imovel.
-    # PK DECLARADA na origem (SYS.SYSINDEXES, "Primary Key") e confirmada pelo
-    # DADO (ZERO duplicatas). Diferente de fobases/fomovto, que
-    # nao declaram indice unico e precisaram de `i_calculos`, aqui NAO entra
-    # coluna discriminadora — inventar uma dividiria o grao sem motivo.
-    "efimob_pagamentos": ["codi_emp", "i_contrato", "i_parcela", "i_pagamento"],
-}
 
 MART_KEYS: dict[str, list[str]] = {
     "faturamento_mensal":     ["codi_emp", "competencia"],
@@ -200,6 +150,10 @@ def format_run_report(report: dict) -> str:
         L.append(f"  {RET.linha_resumo(ret)}")
     if report.get("retroativas_pulada"):
         L.append(f"  retroativas: comparacao pulada ({RET.sem_ok(report['retroativas_pulada'])})")
+    qual = report.get("qualidade")
+    if qual:
+        L.append(f"  qualidade: {qual['normalizadas']} normalizada(s), {qual['duplicatas']} duplicata(s) "
+                 f"removida(s), {qual['rejeitadas']} rejeitada(s) (pagina Qualidade dos dados)")
 
     alertas = []
     for tab, d in sorted(report.get("dedup_delta", {}).items()):
@@ -280,6 +234,16 @@ def _espelha_log(resumo: str) -> None:
 # CLI
 # ---------------------------------------------------------------------------
 
+RAIZ = Path(__file__).resolve().parent.parent
+
+
+def _pasta_dados_padrao() -> Path:
+    """$DADOS_DIR (ou ./dados); caminho relativo vale a partir da raiz do projeto,
+    porque o ETL roda de dentro de etl/ (CLI, compose e o botão do painel)."""
+    p = Path(os.getenv("DADOS_DIR", "dados"))
+    return p if p.is_absolute() else RAIZ / p
+
+
 def parse_args() -> argparse.Namespace:
     hoje = date.today()
     doze_meses_atras = (hoje.replace(day=1) - timedelta(days=365)).strftime("%Y-%m")
@@ -305,7 +269,7 @@ def parse_args() -> argparse.Namespace:
     )
     parser.add_argument(
         "--dados",
-        default=os.getenv("DADOS_DIR", "dados"),
+        default=str(_pasta_dados_padrao()),
         metavar="PASTA",
         help="Pasta com um CSV/XLSX por tabela de origem (default: $DADOS_DIR ou ./dados)",
     )

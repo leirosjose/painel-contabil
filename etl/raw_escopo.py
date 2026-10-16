@@ -6,7 +6,7 @@
 Um run COM extract e autoritativo so pro que PEDIU: a janela de datas de cada
 tabela, a empresa (ou todas), a geracao do saldo inicial. A geracao nova de uma
 tabela substitui a anterior DENTRO desse pedido, fatia a fatia -- nunca por
-MAX(run_id). Espelha os filtros de extract.py.
+MAX(run_id). Espelha os filtros de janela da fonte (raw_schema.COLUNA_JANELA).
 
 Fatia e INTEIRO (4 bytes em ~10M linhas):
   AAAAMM    tabela com janela de datas (mes da coluna de data da linha)

@@ -3,10 +3,7 @@
 Funções de formatação (período, BRL, %, indicador), divisão segura, média
 robusta a inf/-inf, helpers de CNPJ e soma agregada de balancete por prefixo
 de clas_cta. Sem dependências de Streamlit, Plotly ou Jinja2 — só pandas +
-mappings (+ psycopg2 exclusivamente em `get_regime`).
-
-Nota: `etl/extract.py` mantém limpeza de CNPJ via `.str.replace` vectorizado
-(C-level) por performance; `only_digits` daqui é a versão escalar.
+mappings.
 """
 
 import math

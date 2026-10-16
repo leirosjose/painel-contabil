@@ -63,6 +63,59 @@ TIPOS: dict[str, dict[str, str]] = {
     "hrfaturamento": {"codi_emp": INTEIRO, "i_faturamento": INTEIRO, "data_faturamento": DATA},
 }
 
+# Chave natural de cada tabela no raw (upsert e validacao da geracao).
+RAW_KEYS: dict[str, list[str]] = {
+    "geempre":         ["codi_emp"],
+    "ctcontas":        ["codi_emp", "codi_cta"],
+    "ctlancto":        ["codi_emp", "nume_lan"],
+    "efsaidas":        ["codi_emp", "codi_sai"],
+    "efentradas":      ["codi_emp", "codi_ent"],
+    "efservicos":      ["codi_emp", "codi_ser"],
+    # PK declarada na origem (SYS.SYSIDX).
+    "efservicospar":   ["codi_emp", "codi_ser", "parc_serp"],
+    # Chave = PK da origem; pdic_sim (slot de apuracao) preserva as
+    # guias-irmas do mesmo mes que o keep="last" do trio descartava.
+    "efsdoimp":        ["codi_emp", "codi_imp", "data_sim", "pdic_sim"],
+    "foempregados":    ["codi_emp", "i_empregados"],
+    # Grao real do calculo: i_calculos preserva os recibos RPA irmaos do
+    # mesmo mes que o keep="last" descartaria — dedup vira no-op e
+    # extract == --skip-extract (mesmo caso do pdic_sim).
+    "fobases":         ["codi_emp", "i_empregados", "competencia", "tipo_process",
+                        "i_calculos"],
+    "hrfaturamento":   ["codi_emp", "i_faturamento"],
+    # `data_corte` NA CHAVE: o si e "soma de lancamentos < --inicio",
+    # entao cada janela produz uma GERACAO propria. Sem a terceira coluna,
+    # o extract de uma janela incremental (que e um SUPERSET dos pares do
+    # corte canonico) sobrescreve o canonico IN PLACE e a carteira inteira
+    # fica sem saldo de abertura. Com ela, as geracoes convivem e
+    # `run_transform` filtra a do proprio run.
+    # MIGRACAO: banco existente NAO se atualiza sozinho (_ensure_table so
+    # faz CREATE TABLE IF NOT EXISTS).
+    "ctsaldo_inicial": ["codi_emp", "codi_cta", "data_corte"],
+    # Guias de folha (ids unicos verificados na origem)
+    "foguiainss":      ["codi_emp", "i_guiainss"],
+    "fofgtsfilial":    ["codi_emp", "i_fgtsfilial"],
+    "foguiagrfc":      ["codi_emp", "i_calculos"],
+    # Registro de rescisoes (id unico verificado na origem)
+    "forescisoes":     ["codi_emp", "i_calculos"],
+    # Folha por rubrica. A origem NAO declara indice unico na FOMOVTO —
+    # i_calculos entra na chave, como em fobases.
+    "fomovto":         ["codi_emp", "i_empregados", "data", "tipo_proces",
+                        "i_eventos", "i_calculos"],
+    "foeventos":       ["codi_emp", "i_eventos"],
+    # dicionario PADRAO de rubricas, sem codi_emp. Cobre as
+    # empresas que nunca materializaram a copia (FOEVENTOS).
+    "foeventosdef":    ["i_eventos"],
+    # dicionario GLOBAL de familias, sem codi_emp
+    "foclassificacoes_eventos": ["i_classificacao"],
+    # Recebimento de parcela de venda de imovel.
+    # PK DECLARADA na origem (SYS.SYSINDEXES, "Primary Key") e confirmada pelo
+    # DADO (ZERO duplicatas). Diferente de fobases/fomovto, que
+    # nao declaram indice unico e precisaram de `i_calculos`, aqui NAO entra
+    # coluna discriminadora — inventar uma dividiria o grao sem motivo.
+    "efimob_pagamentos": ["codi_emp", "i_contrato", "i_parcela", "i_pagamento"],
+}
+
 # Coluna de data que define a janela de cada tabela (None = sem janela própria).
 COLUNA_JANELA: dict[str, str | None] = {
     "geempre": None, "ctcontas": None, "ctlancto": "data_lan", "efsaidas": "dsai_sai",

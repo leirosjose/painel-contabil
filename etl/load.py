@@ -299,7 +299,7 @@ def upsert_raw(table: str, df: pd.DataFrame, key_cols: list[str]) -> int:
 
     Args:
         table:    nome da tabela sem schema prefix.
-        df:       DataFrame retornado pelo extract.py.
+        df:       DataFrame lido da fonte.
         key_cols: colunas que formam a chave de conflito.
 
     Returns:

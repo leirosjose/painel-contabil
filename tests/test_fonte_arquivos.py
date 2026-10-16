@@ -166,3 +166,17 @@ def test_lancamento_e_parcela_conferidos_contra_os_cadastros(tmp_path):
     assert fonte.ler("efservicospar")["codi_ser"].tolist() == [1]
     assert len(fonte.relatorio["ctlancto"].rejeitadas) == 1
     assert len(fonte.relatorio["efservicospar"].rejeitadas) == 1
+
+
+def test_xlsx_preserva_texto_com_zero_a_esquerda(tmp_path):
+    pd.DataFrame([{"codi_emp": 101, "nome_emp": "ALFA", "apel_emp": "ALFA", "cgce_emp": "06460760000168",
+                   "stat_emp": "A"}]).to_excel(tmp_path / "geempre.xlsx", index=False)
+    df = FonteArquivos(tmp_path).ler("geempre")
+    assert df["cgce_emp"].tolist() == ["06460760000168"]
+
+
+def test_pasta_de_dados_relativa_resolve_na_raiz_do_projeto(monkeypatch):
+    import main as M
+    monkeypatch.setenv("DADOS_DIR", "dados")
+    monkeypatch.setattr("sys.argv", ["main.py"])
+    assert M.parse_args().dados == str(M.RAIZ / "dados")

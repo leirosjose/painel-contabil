@@ -66,7 +66,9 @@ def suja(tabelas: dict, seed: int) -> tuple[dict, dict]:
         livres = list(df.index)
         rnd.shuffle(livres)
         extras = []
-        proximo = int(pd.to_numeric(df[CHAVE_NOVA[tabela]]).max()) + 1000 if tabela in CHAVE_NOVA else 0
+        origem_chave = tabelas["efservicos"] if tabela == "efservicospar" else df
+        proximo = (int(pd.to_numeric(origem_chave[CHAVE_NOVA[tabela]]).max()) + 1000
+                   if tabela in CHAVE_NOVA else 0)
         for tipo, qtd in plano.items():
             for _ in range(qtd):
                 if tipo in NORMALIZAVEIS:
@@ -76,7 +78,8 @@ def suja(tabelas: dict, seed: int) -> tuple[dict, dict]:
                 if tipo == "duplicada":
                     extras.append(df.loc[livres.pop()].copy())
                     continue
-                linha = df.loc[rnd.choice(df.index[:len(tabelas[tabela])])].copy()
+                limpo = tabelas[tabela].astype(object)
+                linha = limpo.loc[rnd.choice(limpo.index)].copy()
                 linha[CHAVE_NOVA[tabela]] = proximo
                 proximo += 1
                 if tipo == "ano_absurdo":

@@ -10,6 +10,9 @@ from fonte.arquivos import FonteArquivos
 from gerador.escrita import escreve
 from gerador.sujeira import suja
 
+MOTIVO = {"ano_absurdo": Q.M_DATA_IMPLAUSIVEL, "obrigatoria_vazia": Q.M_OBRIGATORIA,
+          "empresa_inexistente": Q.M_EMPRESA, "parcela_orfa": Q.M_PARCELA_ORFA,
+          "conta_fora_do_plano": Q.M_CONTA}
 NORMALIZA = {"data_br": Q.N_DATA_BR, "valor_br": Q.N_VALOR_BR, "cnpj_mascara": Q.N_CNPJ,
              "texto_sujo": Q.N_TEXTO}
 
@@ -81,3 +84,26 @@ def test_dado_limpo_nao_gera_rejeicao_nem_normalizacao(pastas):
     for tabela in manifesto:
         r = _rel(fonte, tabela)
         assert r.rejeitadas.empty and not r.normalizadas and r.duplicatas == 0, tabela
+
+
+@pytest.mark.parametrize("seed", [1, 2, 3, 4, 5, 6, 7, 8])
+def test_manifesto_bate_com_a_limpeza_em_qualquer_semente(tmp_path, seed):
+    sujo, manifesto = suja(gerador.gera(seed), seed)
+    escreve(sujo, tmp_path, manifesto=manifesto)
+    fonte = FonteArquivos(tmp_path)
+    for tabela, tipos in manifesto.items():
+        r = _rel(fonte, tabela)
+        for tipo, motivo in MOTIVO.items():
+            achadas = int(r.rejeitadas["motivo"].str.startswith(motivo).sum()) if len(r.rejeitadas) else 0
+            assert achadas == tipos.get(tipo, 0), (seed, tabela, tipo, r.rejeitadas_por_motivo())
+        assert sum(r.normalizadas.values()) == sum(n for t, n in tipos.items() if t in NORMALIZA), (seed, tabela)
+        assert r.duplicatas == tipos.get("duplicada", 0), (seed, tabela)
+
+
+def test_linha_extra_rejeitada_nasce_do_dado_limpo_e_nao_de_linha_ja_suja(tmp_path):
+    tabelas = gerador.gera(gerador.SEED)
+    tabelas["efsaidas"] = tabelas["efsaidas"].head(14)
+    sujo, manifesto = suja(tabelas, gerador.SEED)
+    escreve(sujo, tmp_path, manifesto=manifesto)
+    r = _rel(FonteArquivos(tmp_path), "efsaidas")
+    assert r.rejeitadas_por_motivo().get(Q.M_DATA_IMPLAUSIVEL + ": dsai_sai") == 2

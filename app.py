@@ -1846,7 +1846,7 @@ def _etl_periods(modo, custom_ini, custom_fim, today=None):
 
 def _probe_janela():
     """Decisão da janela incremental via subprocess `main.py --probe-janela`
-    (a origem é JDBC/JVM — fora do processo Streamlit, padrão da casa).
+    (a leitura da origem roda fora do processo do Streamlit).
     Retorna o dict do probe ou None em falha."""
     etl_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), "etl")
     env = os.environ.copy()

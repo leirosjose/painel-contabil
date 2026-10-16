@@ -101,3 +101,25 @@ def test_resumo_por_motivo():
                     _saida(codi_sai="3", dsai_sai="1899-12-31")])
     r = Q.limpa("efsaidas", bruto, empresas={101})
     assert r.rejeitadas_por_motivo() == {Q.M_EMPRESA: 2, Q.M_DATA_IMPLAUSIVEL + ": dsai_sai": 1}
+
+
+def test_chave_vazia_e_rejeitada_em_vez_de_derrubar_a_carga():
+    par = _bruto([{"codi_emp": "102", "codi_ser": None, "parc_serp": "1", "vissr_serp": "10"}])
+    r = Q.limpa("efservicospar", par, empresas={102}, notas_servico={(102, 1)})
+    assert r.rejeitadas["motivo"].tolist() == [Q.M_OBRIGATORIA + ": codi_ser"]
+    conta = _bruto([{"codi_emp": "101", "codi_cta": None, "clas_cta": "1", "nome_cta": "X", "grdre_cta": None}])
+    assert Q.limpa("ctcontas", conta, empresas={101}).rejeitadas["motivo"].tolist() == [
+        Q.M_OBRIGATORIA + ": codi_cta"]
+    assert Q.limpa("efsaidas", _bruto([_saida(codi_sai=None)]), empresas={101}).rejeitadas["motivo"].tolist() == [
+        Q.M_OBRIGATORIA + ": codi_sai"]
+
+
+def test_milhar_sem_decimais_e_ambiguo_e_rejeitado():
+    r = Q.limpa("efsaidas", _bruto([_saida(vcon_sai="1.234")]), empresas={101})
+    assert r.rejeitadas["motivo"].tolist() == [Q.M_VALOR_AMBIGUO + ": vcon_sai"]
+
+
+def test_data_vazia_vinda_do_excel_e_tratada_como_vazia():
+    bruto = pd.DataFrame([{"codi_emp": 101, "i_empregados": 1, "admissao": pd.NaT}])
+    r = Q.limpa("foempregados", bruto, empresas={101})
+    assert r.rejeitadas.empty and r.aceitas["admissao"].tolist() == [None]

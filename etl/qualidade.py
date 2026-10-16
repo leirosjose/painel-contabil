@@ -15,7 +15,7 @@ from dataclasses import dataclass, field
 
 import pandas as pd
 
-from raw_schema import COLUNA_JANELA, DATA, INTEIRO, TEXTO, TIPOS, VALOR
+from raw_schema import COLUNA_JANELA, DATA, INTEIRO, RAW_KEYS, TEXTO, TIPOS, VALOR
 
 N_DATA_BR = "data em formato dd/mm/aaaa"
 N_VALOR_BR = "valor com vírgula decimal"
@@ -26,6 +26,7 @@ M_OBRIGATORIA = "coluna obrigatória vazia"
 M_DATA_INVALIDA = "data ilegível"
 M_DATA_IMPLAUSIVEL = "data fora do intervalo plausível"
 M_VALOR_INVALIDO = "valor ilegível"
+M_VALOR_AMBIGUO = "valor ambíguo (ponto de milhar sem decimais?)"
 M_INTEIRO_INVALIDO = "código ilegível"
 M_EMPRESA = "empresa inexistente no cadastro"
 M_PARCELA_ORFA = "parcela sem nota de serviço"
@@ -37,6 +38,7 @@ COLUNAS_NOME = frozenset({"nome_emp", "apel_emp", "nome_cta"})
 _RE_ISO = re.compile(r"(\d{4})-(\d{2})-(\d{2})(?:[ T]00:00:00)?")
 _RE_BR = re.compile(r"(\d{2})/(\d{2})/(\d{4})")
 _RE_NUM = re.compile(r"-?\d+(?:\.\d+)?")
+_RE_MILHAR_SEM_DECIMAL = re.compile(r"-?\d{1,3}(?:\.\d{3})+")
 _RE_NUM_BR = re.compile(r"-?(?:\d{1,3}(?:\.\d{3})+|\d+),\d+")
 _RE_INT = re.compile(r"-?\d+(?:\.0+)?")
 
@@ -46,10 +48,11 @@ class _Rejeita(Exception):
 
 
 def obrigatorias(tabela: str) -> list[str]:
-    """Empresa e a data que define a janela: sem elas a linha não tem lugar."""
-    cols = [c for c in ("codi_emp",) if c in TIPOS[tabela]]
-    if COLUNA_JANELA.get(tabela):
-        cols.append(COLUNA_JANELA[tabela])
+    """Chave natural, empresa e a data da janela: sem elas a linha não tem lugar."""
+    cols = [c for c in RAW_KEYS.get(tabela, []) if c in TIPOS[tabela]]
+    for c in ("codi_emp", COLUNA_JANELA.get(tabela)):
+        if c and c in TIPOS[tabela] and c not in cols:
+            cols.append(c)
     return cols
 
 
@@ -68,7 +71,9 @@ class Resultado:
 
 
 def _vazio(v) -> bool:
-    return v is None or (isinstance(v, float) and pd.isna(v)) or (isinstance(v, str) and not v.strip())
+    if isinstance(v, str):
+        return not v.strip()
+    return v is None or bool(pd.isna(v))
 
 
 def _como_texto(v) -> str:
@@ -99,6 +104,8 @@ def _data(col, s, notas):
 
 def _valor(col, s, notas):
     s = s.strip()
+    if _RE_MILHAR_SEM_DECIMAL.fullmatch(s):
+        raise _Rejeita(f"{M_VALOR_AMBIGUO}: {col}")
     if _RE_NUM.fullmatch(s):
         return s
     if _RE_NUM_BR.fullmatch(s):
@@ -181,7 +188,7 @@ def _checa_consistencia(tabela, linha, empresas, contas, notas_servico):
         for col in ("cdeb_lan", "ccre_lan"):
             if linha.get(col) is not None and (emp, int(linha[col])) not in contas:
                 raise _Rejeita(f"{M_CONTA}: {col}")
-    if tabela == "efservicospar" and notas_servico is not None:
+    if tabela == "efservicospar" and notas_servico is not None and linha.get("codi_ser") is not None:
         if (emp, int(linha["codi_ser"])) not in notas_servico:
             raise _Rejeita(M_PARCELA_ORFA)
 
