@@ -1,0 +1,52 @@
+# docker compose up  ->  gera os dados sinteticos, carrega no Postgres e
+# sobe o painel em http://localhost:8503
+x-ambiente: &ambiente
+  PG_HOST: db
+  PG_PORT: "5432"
+  PG_DB: painel_bi
+  PG_USER: postgres
+  PG_PASS: postgres
+  DADOS_DIR: /dados
+
+services:
+  db:
+    image: postgres:15
+    environment:
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: painel_bi
+    volumes:
+      - banco:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d painel_bi"]
+      interval: 2s
+      timeout: 3s
+      retries: 30
+
+  carga:
+    build: .
+    image: painel-contabil:local
+    environment: *ambiente
+    command: >
+      sh -c "python -m gerador --saida /dados &&
+             cd etl && python main.py --empresa all --inicio 2023-12 --fim 2025-12"
+    volumes:
+      - dados:/dados
+    depends_on:
+      db:
+        condition: service_healthy
+
+  app:
+    image: painel-contabil:local
+    environment: *ambiente
+    ports:
+      - "8503:8503"
+    volumes:
+      - dados:/dados
+      - ./saida:/app/saida
+    depends_on:
+      carga:
+        condition: service_completed_successfully
+
+volumes:
+  banco:
+  dados:

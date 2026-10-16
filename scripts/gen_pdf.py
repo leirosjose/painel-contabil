@@ -7,8 +7,8 @@ Uso: python scripts/gen_pdf.py <codi_emp> <YYYY-MM de> <YYYY-MM ate> [modelos]
 pdf_generator.MODELOS (ex.: "fiscal" ou "fiscal,folha"). Omitido = TODOS os
 modelos do registro, que e o mesmo default dos botoes do Streamlit.
 
-Saida: evidencias/b_make_pdf/<emp>_<de>_<ate>[_<modelos>].pdf (evidencias/ e
-gitignored). O sufixo de modelos no nome evita que duas geracoes da MESMA
+Saida: saida/<emp>_<de>_<ate>[_<modelos>].pdf (saida/ e gitignored). O sufixo
+de modelos no nome evita que duas geracoes da MESMA
 empresa/janela com selecoes diferentes se sobrescrevam.
 """
 import os
@@ -43,9 +43,9 @@ def main():
                                    modelos=modelos)
     finally:
         conn.close()
-    os.makedirs("evidencias/b_make_pdf", exist_ok=True)
+    os.makedirs("saida", exist_ok=True)
     sufixo = f"_{'-'.join(modelos)}" if modelos else ""
-    out = f"evidencias/b_make_pdf/{emp}_{de}_{ate}{sufixo}.pdf"
+    out = f"saida/{emp}_{de}_{ate}{sufixo}.pdf"
     with open(out, "wb") as f:
         f.write(pdf)
     print(f"OK {out} ({len(pdf)} bytes)")
