@@ -111,16 +111,15 @@ def abre_app(banco_carregado):
       1) `run()` descobre os ROTULOS de periodo -- o `.options` do selectbox
          devolve "Jan/26", nunca o indice cru que e a opcao de verdade;
       2) sel_de/sel_ate + `run()` poem a JANELA alvo;
-      3) so entao `session_state["emp_atual"]` + `run()` pina a empresa.
+      3) so entao `session_state["emp_sel"]` + `run()` pina a empresa.
 
     Pinar ANTES da janela funciona pra empresa avulsa e FALHA EM SILENCIO pra
     GRUPO: no 1o run a janela e a default, a composicao do grupo e outra, a
     tupla nao esta em `_lbl_por_ids` e o re-ancora cai em `(_sel[0],)` -- o
     card exibiria a matriz em vez do grupo.
 
-    O estado da empresa mora em `emp_atual`, chave NOSSA, porque o selectbox
-    de Empresa nao tem `key=` de proposito. NAO dar `key=` a ele pra
-    "facilitar o teste".
+    O estado da empresa mora em `emp_sel`, a chave fixa do selectbox de
+    Empresa: o app le e grava essa chave antes de criar o widget.
 
     REGRA DO MODULO: nenhum teste de AppTest clica "Executar Atualizacao" nem
     os botoes de PDF. O slot do ETL e `@st.cache_resource`, process-global, e
@@ -142,7 +141,7 @@ def abre_app(banco_carregado):
                 at.sidebar.text_input("busca_emp").set_value(busca)
             at.run()
         if emp_ids is not None:
-            at.session_state["emp_atual"] = tuple(emp_ids)
+            at.session_state["emp_sel"] = tuple(emp_ids)
             at.run()
         return at
 

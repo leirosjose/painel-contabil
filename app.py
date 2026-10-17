@@ -1351,7 +1351,7 @@ with st.sidebar:
 
     # Re-ancora ANTES de criar o widget: valor persistido que sumiu da carteira
     # NAO pode cair no indice 0 — a empresa trocaria sozinha.
-    _sel = st.session_state.get("emp_atual")
+    _sel = st.session_state.get("emp_sel")
     if _sel is not None and _sel not in _lbl_por_ids:
         # Consolidacao DESLIGADA: o item de grupo (tupla de N ids) some e as
         # filiais viram itens avulsos. Cai na PRIMEIRA filial dele, que existe
@@ -1417,25 +1417,28 @@ with st.sidebar:
     elif busca and _sel is not None and _sel not in {it[3] for it in itens_visiveis}:
         _sel = itens_visiveis[0][3]
 
-    # ── Por que o estado NAO mora na chave do widget ─────────────────────
-    # O estado do selectbox trafega do browser como INDICE, nao como valor, e o
-    # Streamlit resolve esse indice contra a lista NOVA **antes** do script
-    # rodar. Se a lista mudou de tamanho nesse meio tempo, `session_state[key]`
-    # ja chega apontando pra outra empresa — nao ha o que "pinar" depois.
-    # (Ex.: ligar/desligar a consolidacao muda o tamanho da lista e o indice
-    # antigo cai noutro item.)
+    # ── Por que o estado mora na CHAVE do widget (`emp_sel`) ──────────────
+    # Sem `key`, o Streamlit (1.57) identifica o widget pelos parametros:
+    # rotulo, opcoes formatadas e `index`. Com `index=` recalculado a cada
+    # troca, todo rerun criava um widget NOVO, e o clique seguinte, feito no
+    # widget antigo, era descartado: a 2a e a 4a troca seguidas nao aplicavam.
+    # Com `key` fixa, a identidade e so a chave.
     #
-    # Por isso o estado vive em `emp_atual`, chave NOSSA, e o widget recebe
-    # `index=` explicito. Sem fallback silencioso pra indice 0 quando o
-    # filtro exclui a selecao: `_sel` chega ao widget
-    # SEMPRE deliberado — anterior, re-ancorado, ou auto-selecionado pela regra
-    # 1 — e `index=` aponta pra ele. O valor de volta so difere se o operador
-    # clicou, que e precisamente o que se quer persistir.
+    # O valor volta do browser como ROTULO, e ler `session_state["emp_sel"]`
+    # ANTES do widget devolve a tupla de ids decodificada com a lista do rerun
+    # ANTERIOR. Lista que muda de tamanho (consolidacao) ou rotulo que muda
+    # (selos de cobertura ao trocar o periodo) nao desviam pra outra empresa.
+    #
+    # A decisao fica toda aqui, antes do widget: `_sel` e o anterior,
+    # re-ancorado ou auto-selecionado pela regra 1, e o que sumiu da lista cai
+    # no padrao explicito (a primeira opcao), nunca num indice velho. Gravar
+    # `_sel` na chave e o que o widget mostra; nada de `index=`.
     _ids_vis = [it[3] for it in itens_visiveis]
     if _sel not in _ids_vis:
         # So chega aqui quem sumiu da carteira (troca de periodo), ja que os
         # ramos acima cobrem filtro e consolidacao.
         _sel = _ids_vis[0]
+    st.session_state["emp_sel"] = _sel
 
     # ── Cursor: seta, nao I-beam ──────────────────────────────────────────
     # O `filter_mode=None` deixa o <input> READONLY (`el.readOnly` e
@@ -1467,7 +1470,7 @@ with st.sidebar:
 
     emp_ids = st.container(key="emp_box").selectbox(
         "Empresa", _ids_vis,
-        index=_ids_vis.index(_sel),
+        key="emp_sel",
         format_func=lambda ids: _lbl_por_ids[ids],
         # O dropdown so ESCOLHE — quem busca e o campo acima. `None` desliga a
         # digitacao pelo caminho nativo (o `inputReadOnly` do widget). NAO
@@ -1476,7 +1479,6 @@ with st.sidebar:
         filter_mode=None,
         disabled=_etl_running,
     )
-    st.session_state["emp_atual"] = emp_ids
     empresa_nome, empresa_cnpj = _dados_por_ids[emp_ids]
     empresa_marca = _marca_por_ids[emp_ids]
 

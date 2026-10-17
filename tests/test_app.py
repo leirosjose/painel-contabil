@@ -639,19 +639,20 @@ def test_streamlit_rotulo_de_empresa_nunca_se_repete():
     assert "rotulos_unicos([(it[3], it[2]) for it in itens])" in APP_CODE
 
 
-def test_streamlit_estado_da_empresa_nao_mora_na_chave_do_widget():
-    # ARMADILHA: o estado do selectbox trafega do browser como INDICE, e o
-    # Streamlit resolve esse indice contra a lista NOVA **antes** do script
-    # rodar. Com a lista mudando de tamanho (consolidacao ligada/desligada), a
-    # chave do widget ja chega apontando pra outra empresa e nao ha o que
-    # "pinar" depois.
+def test_streamlit_estado_da_empresa_mora_na_chave_fixa_do_widget():
+    # ARMADILHA: sem `key`, o Streamlit identifica o widget pelos parametros,
+    # `index` incluso. Com `index=` recalculado a cada troca, cada rerun criava
+    # um widget novo e a troca seguinte era descartada (2a e 4a seguidas nao
+    # aplicavam). A prova em navegador real esta em
+    # tests/test_app_troca_empresa_chrome.py.
     #
-    # Por isso o estado vive em `emp_atual`, chave NOSSA, e o widget recebe
-    # `index=` explicito. Passar `key=` aqui reintroduziria a corrupcao, entao
-    # o guard bane a chave no widget de empresa.
-    assert 'st.session_state["emp_atual"] = emp_ids' in APP_CODE
-    assert "index=_ids_vis.index(_sel)" in APP_CODE
-    assert 'key="emp_sel"' not in APP_CODE
+    # Por isso o widget tem `key="emp_sel"` fixa, o `_sel` decidido e gravado
+    # nela ANTES do widget, e nada de `index=` nem do estado paralelo antigo.
+    assert 'key="emp_sel"' in APP_CODE
+    assert 'st.session_state["emp_sel"] = _sel' in APP_CODE
+    assert APP_CODE.index('st.session_state["emp_sel"] = _sel') < APP_CODE.index('key="emp_sel"')
+    assert "index=_ids_vis.index(_sel)" not in APP_CODE
+    assert "emp_atual" not in APP_CODE
     # `key="emp_box"` e do CONTAINER (ancora do CSS de cursor), nao do widget:
     # container nao carrega estado de selecao.
     assert 'st.container(key="emp_box")' in APP_CODE
@@ -659,7 +660,7 @@ def test_streamlit_estado_da_empresa_nao_mora_na_chave_do_widget():
 
 def test_streamlit_busca_que_casa_auto_seleciona_o_primeiro():
     # Digitar uma busca que CASA ja e a intencao de trocar. A decisao
-    # acontece ANTES do widget, e o `index=` a aplica no MESMO rerun - senao o
+    # acontece ANTES do widget, e gravar `_sel` na chave a aplica no MESMO rerun - senao o
     # operador ve a busca "nao fazer nada".
     assert "_sel = itens_visiveis[0][3]" in APP_CODE
     # `busca and` no guard: sem ele, LIMPAR a busca cairia no mesmo ramo e

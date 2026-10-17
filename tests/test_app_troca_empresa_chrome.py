@@ -4,7 +4,9 @@
 # O AppTest nao reproduz os defeitos que estes testes guardam: ele escreve o
 # valor direto pelo id do widget, sem passar pelo frontend. No navegador o
 # valor do selectbox vai e volta pelo ROTULO (Streamlit 1.57), entao rotulo
-# repetido e identidade de widget instavel so aparecem aqui.
+# repetido e identidade de widget instavel so aparecem aqui. Sem `key` e
+# com `index=` variavel, cada troca recriava o widget e a troca seguinte era
+# descartada (1a, 3a e 5a aplicavam; 2a e 4a nao).
 #
 # Marker `chrome` (fora do CI, como os outros testes com Chrome) e `db`: o app
 # sobe num subprocesso contra o `painel_bi` com carga (`banco_carregado` pula
@@ -16,6 +18,7 @@ import socket
 import subprocess
 import sys
 import time
+import urllib.parse
 import urllib.request
 
 import pytest
@@ -172,3 +175,93 @@ def test_consolidacao_desligada_escolher_a_matriz_abre_a_matriz(pagina, alvos):
     p.get_by_role("option").filter(has_text=nome_gama).nth(1).click()
     _espera(p)
     assert alvos.avulsa(105)(_tela(p)), _tela(p)
+
+
+def test_cinco_trocas_seguidas_sem_reload_aplicam_todas(pagina, alvos):
+    p = pagina
+    assert alvos.avulsa(101)(_tela(p)), _tela(p)
+    roteiro = [
+        ("BETA", alvos.opcao(102), alvos.avulsa(102)),
+        ("DELTA", alvos.opcao(104), alvos.avulsa(104)),
+        ("GAMA grupo", "GRUPO", alvos.grupo()),
+        ("Filial 0002", "Filial 0002", alvos.avulsa(105)),
+        ("ALFA", alvos.opcao(101), alvos.avulsa(101)),
+    ]
+    resultado = []
+    for n, (nome, opcao, confere) in enumerate(roteiro, 1):
+        _escolhe(p, opcao)
+        tela = _tela(p)
+        resultado.append(f"{n}a troca -> {nome}: {'OK' if confere(tela) else 'IGNORADA'} | tela={tela[0]!r}")
+    assert all(r.split(": ")[1].startswith("OK") for r in resultado), "\n" + "\n".join(resultado)
+
+
+def test_consolidacao_mantem_a_empresa_ou_cai_na_matriz_do_grupo(pagina, alvos):
+    p = pagina
+    _escolhe(p, "GRUPO")
+    assert alvos.grupo()(_tela(p)), _tela(p)
+    _consolidacao(p)                      # desliga: o grupo some, cai na matriz
+    assert alvos.avulsa(103)(_tela(p)), _tela(p)
+    _consolidacao(p)                      # religa: a matriz continua nas opcoes
+    assert alvos.avulsa(103)(_tela(p)), _tela(p)
+    for codi, opcao in ((104, alvos.opcao(104)), (105, "Filial 0002")):
+        _escolhe(p, opcao)
+        assert alvos.avulsa(codi)(_tela(p)), (codi, _tela(p))
+        _consolidacao(p)
+        assert alvos.avulsa(codi)(_tela(p)), (codi, "desligada", _tela(p))
+        _consolidacao(p)
+        assert alvos.avulsa(codi)(_tela(p)), (codi, "religada", _tela(p))
+
+
+def test_busca_auto_seleciona_mantem_e_troca_depois(pagina, alvos):
+    p = pagina
+    _escolhe(p, alvos.opcao(104))
+    _busca(p, "gama")                     # casa, e a aberta nao esta: auto-seleciona
+    assert alvos.grupo()(_tela(p)), _tela(p)
+    _escolhe(p, "Filial 0002")            # troca dentro do filtro
+    assert alvos.avulsa(105)(_tela(p)), _tela(p)
+    _busca(p, "zzz")                      # nao casa: avisa e mantem
+    assert p.get_by_text("Nenhuma empresa encontrada com o filtro atual.").count() == 1
+    assert alvos.avulsa(105)(_tela(p)), _tela(p)
+    _busca(p, "")                         # limpa: mantem
+    assert alvos.avulsa(105)(_tela(p)), _tela(p)
+    _busca(p, _cnpj_pontuado(alvos.emp[101][1]))   # CNPJ pontuado acha pelo predicado
+    assert alvos.avulsa(101)(_tela(p)), _tela(p)
+    _busca(p, "")
+    _escolhe(p, alvos.opcao(102))
+    assert alvos.avulsa(102)(_tela(p)), _tela(p)
+    _escolhe(p, alvos.opcao(104))
+    assert alvos.avulsa(104)(_tela(p)), _tela(p)
+
+
+def test_troca_de_periodo_mantem_o_grupo_e_as_trocas_seguintes_aplicam(pagina, alvos):
+    p = pagina
+    _escolhe(p, "GRUPO")
+    _de(p, "Jan/25")
+    assert alvos.grupo()(_tela(p)), _tela(p)
+    assert "Jan/25" in _tela(p)[1]
+    _escolhe(p, alvos.opcao(102))
+    assert alvos.avulsa(102)(_tela(p)), _tela(p)
+    _escolhe(p, alvos.opcao(101))
+    assert alvos.avulsa(101)(_tela(p)), _tela(p)
+
+
+def test_pdf_sai_da_empresa_da_tela_e_some_ao_trocar(pagina, alvos):
+    p = pagina
+    _de(p, "Jan/25")                      # PDF aceita no maximo 12 meses
+    _escolhe(p, alvos.opcao(104))
+    _escolhe(p, alvos.opcao(102))         # 2a troca seguida: o caso que falhava
+    assert alvos.avulsa(102)(_tela(p)), _tela(p)
+    p.get_by_role("button", name="Gerar PDF", exact=False).first.click()
+    baixar = p.get_by_role("button", name="Baixar PDF")
+    baixar.wait_for(timeout=180_000)
+    with p.expect_download() as d:
+        baixar.click()
+    # O nome do arquivo vem no Content-Disposition da URL de midia do
+    # Streamlit; o `suggested_filename` do Playwright traz so o hash.
+    with urllib.request.urlopen(d.value.url, timeout=30) as r:
+        disposicao = urllib.parse.unquote(r.headers["Content-Disposition"])
+    nome_beta = alvos.emp[102][0].replace(" ", "_")
+    assert f"Dashboard_{nome_beta}_2025-01_2025-12.pdf" in disposicao, disposicao
+    _escolhe(p, alvos.opcao(104))         # o link nao descreve mais a tela: some
+    assert alvos.avulsa(104)(_tela(p)), _tela(p)
+    assert p.get_by_role("button", name="Baixar PDF").count() == 0
