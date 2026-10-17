@@ -39,6 +39,7 @@ from etl.utils import (
     p_label,
     periods_in_range,
     rotulo_tipo_process,
+    rotulos_unicos,
 )
 from etl.metrics import (
     ALERTA_PCT_IMPOSTOS,
@@ -1247,6 +1248,11 @@ with st.sidebar:
     # A ausência DECLARA: sem a marca, a empresa reaparece calada e o operador
     # não tem como saber que aquele número é de uma empresa já baixada.
     ativa_by_id = {int(r.codi_emp): bool(r.ativa) for r in cov_df.itertuples()}
+    # Homonimas (tipico de matriz e filial) viram itens avulsos com o MESMO
+    # nome quando a consolidacao desliga. O rotulo ganha o sufixo de filial
+    # pra pessoa distinguir, e porque no navegador o rotulo e identidade (ver
+    # `rotulos_unicos` abaixo).
+    _homonimas = cov_df["nome_emp"].astype(str).str.lower().value_counts()
 
     for raiz, grupo in cov_df.groupby("cnpj_raiz"):
         grupo = grupo.sort_values("codi_emp").reset_index(drop=True)
@@ -1261,9 +1267,13 @@ with st.sidebar:
                 badges = _make_badges(cov)
                 nome = str(row["nome_emp"])
                 cnpj = str(row["cgce_emp"]) if pd.notna(row["cgce_emp"]) else ""
-                # A marca entra pelo ROTULO, nunca pelo `nome` (item[4]): ele
-                # vira `empresa_nome` e daí o filename do PDF individual.
-                label = label_empresa(f"{nome}{marca_inativa(ativa_by_id[eid])}",
+                sufixo = ""
+                if _homonimas[nome.lower()] > 1:
+                    fnum = cnpj_filial(cnpj)
+                    sufixo = f" — Filial {fnum}" if fnum else f" — #{eid}"
+                # A marca e o sufixo entram pelo ROTULO, nunca pelo `nome`
+                # (item[4]): ele vira `empresa_nome` e daí o filename do PDF.
+                label = label_empresa(f"{nome}{sufixo}{marca_inativa(ativa_by_id[eid])}",
                                       badges)
                 itens.append((sort_key, i, label, (eid,), nome, cnpj))
         else:
@@ -1306,6 +1316,10 @@ with st.sidebar:
                               (eid,), nome_filial, cnpj))
 
     itens.sort(key=lambda x: (x[0], x[1]))
+    # Rede de seguranca: nenhum rotulo pode se repetir (mesmo nome e mesma
+    # filial em raizes diferentes, por exemplo). Ver `rotulos_unicos`.
+    itens = [(*it[:2], rot, *it[3:])
+             for it, rot in zip(itens, rotulos_unicos([(it[3], it[2]) for it in itens]))]
 
     # Sem nenhuma empresa cadastrada: erro fatal de configuração.
     if not itens:
@@ -1320,9 +1334,10 @@ with st.sidebar:
     # procurar outra empresa o operador teria de APAGAR o rotulo inteiro antes
     # de digitar. Por isso o campo de busca e separado.
     #
-    # A identidade da opcao e a TUPLA DE IDS, nunca o indice posicional nem o
-    # rotulo: com `options=range(len(labels))`, mudar N remontaria o widget em
-    # index=0 e limpar a busca nao devolveria a empresa aberta.
+    # A opcao e a TUPLA DE IDS, nunca o indice posicional: com
+    # `options=range(len(labels))`, mudar N remontaria o widget em index=0 e
+    # limpar a busca nao devolveria a empresa aberta. No navegador, porem, o
+    # valor trafega pelo ROTULO, e por isso ele e unico (`rotulos_unicos`).
     _lbl_por_ids   = {it[3]: it[2] for it in itens}
     _dados_por_ids = {it[3]: (it[4], it[5]) for it in itens}
     # A marca vive num mapa PROPRIO, fora do `nome` de `_dados_por_ids`: aquele

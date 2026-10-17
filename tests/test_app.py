@@ -628,6 +628,17 @@ def test_streamlit_selectbox_de_empresa_tem_identidade_por_ids():
     assert "_ids_vis = [it[3] for it in itens_visiveis]" in APP_CODE
 
 
+def test_streamlit_rotulo_de_empresa_nunca_se_repete():
+    # No navegador o valor do selectbox trafega pelo ROTULO: com dois iguais,
+    # escolher o primeiro abria o ultimo (matriz -> filial homonima com a
+    # consolidacao desligada). Homonimas ganham o sufixo de filial e a rede de
+    # seguranca garante unicidade. Prova em navegador:
+    # tests/test_app_troca_empresa_chrome.py.
+    assert "_homonimas[nome.lower()] > 1" in APP_CODE
+    assert 'f" — Filial {fnum}"' in APP_CODE
+    assert "rotulos_unicos([(it[3], it[2]) for it in itens])" in APP_CODE
+
+
 def test_streamlit_estado_da_empresa_nao_mora_na_chave_do_widget():
     # ARMADILHA: o estado do selectbox trafega do browser como INDICE, e o
     # Streamlit resolve esse indice contra a lista NOVA **antes** do script

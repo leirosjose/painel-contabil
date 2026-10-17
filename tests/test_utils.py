@@ -24,6 +24,7 @@ from etl.utils import (
     only_digits,
     regime_dominante,
     rotulo_tipo_process,
+    rotulos_unicos,
     safe_div,
     weighted_pct,
 )
@@ -108,6 +109,21 @@ class TestCnpjHelpers:
     def test_cnpj_filial_digitos_9_a_12(self):
         assert cnpj_filial("01464544000178") == "0001"
         assert cnpj_filial("01464544") is None
+
+
+# ── rotulos_unicos (rótulo é a identidade do selectbox no navegador) ─────────
+
+class TestRotulosUnicos:
+    def test_rotulos_ja_distintos_ficam_como_estao(self):
+        assert rotulos_unicos([((101,), "ALFA 📊"), ((103, 105), "📁 GAMA — GRUPO")]) == [
+            "ALFA 📊", "📁 GAMA — GRUPO"]
+
+    def test_rotulo_repetido_ganha_o_codi_emp_e_nenhum_se_repete(self):
+        # O Streamlit 1.57 devolve a ULTIMA opcao com o texto clicado: dois
+        # rotulos iguais tornam a primeira opcao inalcancavel.
+        out = rotulos_unicos([((103,), "GAMA 📊"), ((105,), "GAMA 📊"), ((101,), "ALFA")])
+        assert out == ["GAMA 📊 #103", "GAMA 📊 #105", "ALFA"]
+        assert len(set(out)) == len(out)
 
 
 # ── label_empresa (rótulo do dropdown; gate da busca por CNPJ) ───────────────

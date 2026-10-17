@@ -9,6 +9,7 @@ mappings.
 import math
 import re
 import unicodedata
+from collections import Counter
 
 import pandas as pd
 
@@ -231,8 +232,10 @@ def label_empresa(nome, badges="", cnpj=None):
     no dropdown (a filial entra como `"   └ Filial 0002"`, aninhada sob o item
     do grupo). Limpar os dois lados achataria a árvore.
 
-    O rótulo NÃO é identidade — a identidade da opção é a tupla de `codi_emp`,
-    justamente pra rótulo repetido entre homônimas nunca colapsar seleção.
+    A opção é a tupla de `codi_emp`, mas no NAVEGADOR o rótulo também é
+    identidade: o Streamlit 1.57 leva e traz o valor pelo texto. Rótulo repetido
+    faz a escolha cair na última opção com aquele texto, por isso o app passa
+    os rótulos por `rotulos_unicos`.
 
     `cnpj` é OPCIONAL e hoje **nenhum consumer passa**: a busca por CNPJ é
     feita por um predicado separado, que normaliza os DOIS lados. O parâmetro
@@ -242,6 +245,19 @@ def label_empresa(nome, badges="", cnpj=None):
     partes = [str(nome).rstrip(), str(badges).strip(), digits]
     return " ".join(p for p in partes if p.strip())
 
+
+
+def rotulos_unicos(rotulos):
+    """[(ids, rotulo)] -> [rotulo], sem nenhum rótulo repetido.
+
+    No navegador o selectbox (Streamlit 1.57) leva e traz o valor pelo TEXTO
+    da opção, e com dois textos iguais devolve sempre a última: a primeira
+    vira inalcançável e escolhê-la abre outra empresa. O app já distingue
+    homônimas pelo sufixo de filial; isto é a rede de segurança pro que ainda
+    repetir, que ganha o primeiro `codi_emp` da tupla.
+    """
+    n = Counter(r for _, r in rotulos)
+    return [f"{r} #{ids[0]}" if n[r] > 1 else r for ids, r in rotulos]
 
 def regime_dominante(regime_df):
     """Regime mais frequente em regime_df (linhas empresa×competencia da
