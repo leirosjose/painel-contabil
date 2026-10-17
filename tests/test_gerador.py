@@ -147,3 +147,25 @@ def test_simples_faturamento_da_entrega_futura_nao_baixa_estoque(t):
     custo = lan[lan.cdeb_lan == 22].groupby(["codi_emp", "mes"])["vlor_lan"].sum()
     razao = (custo / base.reindex(custo.index)).dropna()
     assert razao.between(0.58 - 1e-4, 0.62 + 1e-4).all(), razao[~razao.between(0.58 - 1e-4, 0.62 + 1e-4)]
+
+
+def test_receita_do_balancete_nao_conta_o_simples_faturamento_5922(t):
+    """A receita reconhece a venda uma vez: na entrega (5116), nunca no simples faturamento (5922).
+
+    Contar os dois punha a mesma venda duas vezes na receita da ALFA, e na GAMA
+    matriz contava um 5922 que o faturamento do painel não conta.
+    """
+    def _por_mes(df, col_data, col_valor):
+        return df.groupby([df["codi_emp"], df[col_data].str[:7].rename("mes")])[col_valor].sum()
+
+    sai = t["efsaidas"]
+    vendas = sai[~sai.codi_nat.isin([CFOP_VENDA_A_ORDEM, *CFOPS_ENTREGA_FUTURA_EMISSAO])]
+    esperada = (_por_mes(vendas, "dsai_sai", "vcon_sai")
+                .add(_por_mes(t["efservicos"], "dser_ser", "vcon_ser"), fill_value=0)
+                .add(_por_mes(t["efimob_pagamentos"], "data_pagamento", "valor_pago"), fill_value=0))
+    lan = t["ctlancto"]
+    receita = _por_mes(lan[lan.ccre_lan.isin([16, 17])], "data_lan", "vlor_lan")
+    dif = receita.sub(esperada.reindex(receita.index), fill_value=0).round(2)
+    erradas = dif[dif.abs() > 0.01]
+    resumo = {int(emp): (len(g), round(float(g.sum()), 2)) for emp, g in erradas.groupby(level=0)}
+    assert erradas.empty, f"empresa: (meses errados, receita a mais) = {resumo}"

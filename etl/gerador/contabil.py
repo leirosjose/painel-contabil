@@ -4,7 +4,7 @@ from collections import defaultdict
 import pandas as pd
 
 from gerador.empresas import DATA_ABERTURA, EMPRESAS, MESES, r2
-from gerador.fiscal import CFOP_VENDA_A_ORDEM, CFOPS_SEM_SAIDA_FISICA, MARGEM_COMPRA
+from gerador.fiscal import CFOPS_SEM_SAIDA_FISICA, MARGEM_COMPRA
 from raw_schema import TIPOS
 
 # (codi_cta, clas_cta, nome_cta, grdre_cta)
@@ -74,8 +74,10 @@ def gera_contabil(rnd, fiscal: dict, folha: dict) -> dict:
         lanc.append({"codi_emp": emp, "nume_lan": seq[emp], "data_lan": data, "cdeb_lan": deb,
                      "ccre_lan": cre, "vlor_lan": r2(valor), "orig_lan": 1})
 
+    # Receita reconhece a venda uma vez, na entrega (5116): o simples
+    # faturamento (5922) e a venda à ordem (5923) ficam fora, como no custo.
     saidas = _soma_mes(fiscal["efsaidas"], "codi_emp", "dsai_sai", "vcon_sai",
-                       lambda d: d["codi_nat"] != CFOP_VENDA_A_ORDEM)
+                       lambda d: ~d["codi_nat"].isin(CFOPS_SEM_SAIDA_FISICA))
     mercadoria = _soma_mes(fiscal["efsaidas"], "codi_emp", "dsai_sai", "vcon_sai",
                            lambda d: ~d["codi_nat"].isin(CFOPS_SEM_SAIDA_FISICA))
     servicos = _soma_mes(fiscal["efservicos"], "codi_emp", "dser_ser", "vcon_ser")
