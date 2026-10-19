@@ -135,13 +135,14 @@ a que o `compose` baixa.
 - **Versões congeladas:** `requirements-lock.txt` fixa até as dependências
   transitivas.
 
-## Desenvolvido com Claude Code
+## Desenvolvido com IA generativa
 
 A arquitetura, as regras de negócio e a validação contra a contabilidade real
 são minhas. Elas vêm do sistema que construí e opero para um escritório que
 usa o Domínio.
 
-A implementação foi feita com o Claude Code, sob minha direção:
+A implementação foi feita com ferramentas de inteligência artificial
+generativa, sob minha direção:
 
 - **Antes de alterar código:** investigação somente leitura;
 - **Mudanças:** planos com critérios de aceite e testes escritos antes do
@@ -158,5 +159,4 @@ Este repositório público foi extraído do sistema privado:
 
 ---
 
-Copyright (c) 2026 José Leiros. Todos os direitos reservados. Código publicado
-para avaliação de portfólio.
+Copyright (c) 2026 José Leiros. Todos os direitos reservados.
